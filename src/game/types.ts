@@ -14,6 +14,8 @@ export interface FaceFeatures {
   /** Ağız genişliği (görsel genişliğine oranla) */
   mouthWidth: number
   nose: Vec
+  /** Yüz ağı: 468 nokta, yüz görseli koordinatlarında (yoksa yüz bükülmez, eski çizim kullanılır) */
+  mesh?: Vec[]
   /** Yüz noktaları gerçekten algılandı mı (false → varsayılan oranlar) */
   detected: boolean
 }

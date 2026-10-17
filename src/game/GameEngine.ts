@@ -80,6 +80,7 @@ export class GameEngine {
     this.ro.disconnect()
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.anim.clear()
+    this.char.dispose()
   }
 
   setLook(look: CharacterLook) { this.char.look = look }

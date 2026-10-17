@@ -1,6 +1,7 @@
 // Karakter: ortama göre kıyafetli gövde (takım elbise, atlet, aşçı önlüğü…) + kullanıcının yüzü + ifadeler + şapka.
 // Poz yaylarla tutulur: animasyonlar itki verir, yaylar karakteri başlangıç pozuna geri getirir.
 // Kafa dönüşümü (headMatrix) her karede hesaplanır; yüze yapışan efektler (pasta, su) bu dönüşümle çizilir → kaymaz.
+import { FaceWarp, WARP_PAD_TOP, WARP_PAD_X, type FaceShape } from '../face/FaceWarp'
 import { Spring, clamp, seeded, shade } from './math'
 import { sceneById, type Hat, type Outfit, type SceneDef } from './scenes'
 import type { CharacterLook, Expression, FaceAsset, Vec } from './types'
@@ -12,6 +13,18 @@ const HIP: Vec = { x: 400, y: 905 }
 const NECK_TOP = -318          // gövde yerelinde boyun üstü
 const HEAD_FROM_NECK = -150    // boyun üstünden kafa merkezine
 const JAW_PX = 46
+
+/** Gerçekçi yüzde (ağ bükme) her ifadenin kanal ağırlıkları; jaw pozdan gelir */
+const EXPRESSION_SHAPES: Record<Expression, Partial<FaceShape>> = {
+  none: {},
+  shut: { blinkL: 1, blinkR: 1, frown: 1, smile: -0.4 },
+  laugh: { smile: 1, blinkL: 0.6, blinkR: 0.6, brow: 0.3 },
+  happy: { smile: 0.8, blinkL: 0.35, blinkR: 0.35 },
+  shock: { brow: 1, blinkL: -0.45, blinkR: -0.45, pucker: 0.7 },
+  googly: { brow: 1, blinkL: -0.6, blinkR: -0.6, pucker: 0.3 },
+  dizzy: { blinkL: 0.6, blinkR: 0.35, brow: 0.5, smile: -0.25 },
+  tongue: { smile: 0.5, blinkR: 1 },
+}
 
 export class Pose {
   x = new Spring(0, 120, 11)
@@ -65,10 +78,37 @@ export class CharacterRenderer {
   /** Dünya → kafa yerel dönüşümü (efektler bunu kullanır) */
   headMatrix = new DOMMatrix()
   bodyMatrix = new DOMMatrix()
+  /** Gerçekçi yüz (fotoğraf yüz ağına gerilir); yüz noktaları ya da WebGL yoksa null → eski çizim */
+  private warp: FaceWarp | null = null
+  private warpFace: FaceAsset | null = null
+  private shape: FaceShape = { jaw: 0, blinkL: 0, blinkR: 0, smile: 0, brow: 0, frown: 0, pucker: 0 }
 
   constructor(face: FaceAsset, look: CharacterLook) {
     this.face = face
     this.look = look
+  }
+
+  /** Darbe: yüz ağı vuruş noktası çevresinde yaylanır (side: vuruşun geldiği yan) */
+  impact(world: Vec, side: 1 | -1, power: number) {
+    if (!this.warp) return
+    const h = this.toHeadLocal(world)
+    this.warp.impact({ x: (h.x / FACE_W + 0.5) * this.warp.texW, y: (h.y / FACE_H + 0.5) * this.warp.texH }, { x: -side, y: 0.25 }, power)
+  }
+
+  dispose() { this.warp?.dispose(); this.warp = null; this.warpFace = null }
+
+  private updateWarp(dt: number) {
+    if (this.warpFace !== this.face) { this.warp?.dispose(); this.warpFace = this.face; this.warp = FaceWarp.create(this.face) }
+    if (!this.warp) return
+    const target = EXPRESSION_SHAPES[this.expression]
+    const blink = this.expression === 'none' && this.blinkT > 0
+    for (const c of ['blinkL', 'blinkR', 'smile', 'brow', 'frown', 'pucker'] as const) {
+      const isBlink = c === 'blinkL' || c === 'blinkR'
+      const t = isBlink && blink ? 1 : target[c] ?? 0
+      this.shape[c] += (t - this.shape[c]) * (1 - Math.exp(-dt * (isBlink ? 40 : 14)))
+    }
+    this.shape.jaw = this.pose.jaw.value * JAW_PX * (this.warp.texH / FACE_H)
+    this.warp.update(dt)
   }
 
   /** Yüz özelliğini kafa yerel koordinatına çevir */
@@ -82,6 +122,7 @@ export class CharacterRenderer {
     this.blinkAt -= dt
     if (this.blinkAt <= 0) { this.blinkT = 0.13; this.blinkAt = 2.5 + Math.random() * 2.5 }
     if (this.blinkT > 0) this.blinkT -= dt
+    this.updateWarp(dt)
     this.computeMatrices()
     this.spin += dt * (5 + Math.min(40, Math.abs(this.pose.headRot.velocity) * 2 + this.pose.wobble * 25))
     // komik göz bebekleri kafanın hareketine gecikmeli tepki verir
@@ -306,21 +347,29 @@ export class CharacterRenderer {
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * FACE_W * 0.47, 8, 26, 40, 0, 0, Math.PI * 2); ctx.fill() }
     ctx.beginPath(); ctx.ellipse(0, 6, FACE_W * 0.47, FACE_H * 0.47, 0, 0, Math.PI * 2); ctx.fill()
 
-    // yüz: ağız hizasından bölünür; çene (alt parça) jaw kadar aşağı kayar
-    const jaw = this.pose.jaw.value * JAW_PX
-    const mouth = this.featureLocal(f.mouth)
-    const splitPx = clamp(f.mouth.y, 0.5, 0.9) * face.height
-    const splitLocal = (splitPx / face.height - 0.5) * FACE_H
-    if (jaw > 1) {
-      // ağız içi
-      const mw = Math.max(0.18, f.mouthWidth) * FACE_W * 0.62
-      ctx.fillStyle = '#5a1418'
-      ctx.beginPath(); ctx.ellipse(mouth.x, splitLocal + jaw / 2, mw, jaw / 2 + 6, 0, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#e0646c'
-      ctx.beginPath(); ctx.ellipse(mouth.x, splitLocal + jaw * 0.8, mw * 0.55, jaw * 0.28 + 3, 0, 0, Math.PI * 2); ctx.fill()
+    const warp = this.warp?.ok ? this.warp : null
+    if (warp) {
+      // gerçekçi yüz: bükülmüş ağ ara canvas'a çizilir (çevresindeki pay da yüz ölçeğiyle yerleşir)
+      warp.render(this.shape, this.look.cartoon)
+      const sx = FACE_W / warp.texW, sy = FACE_H / warp.texH
+      ctx.drawImage(warp.canvas, -FACE_W / 2 - WARP_PAD_X * sx, -FACE_H / 2 - WARP_PAD_TOP * sy, warp.canvas.width * sx, warp.canvas.height * sy)
+    } else {
+      // yüz: ağız hizasından bölünür; çene (alt parça) jaw kadar aşağı kayar
+      const jaw = this.pose.jaw.value * JAW_PX
+      const mouth = this.featureLocal(f.mouth)
+      const splitPx = clamp(f.mouth.y, 0.5, 0.9) * face.height
+      const splitLocal = (splitPx / face.height - 0.5) * FACE_H
+      if (jaw > 1) {
+        // ağız içi
+        const mw = Math.max(0.18, f.mouthWidth) * FACE_W * 0.62
+        ctx.fillStyle = '#5a1418'
+        ctx.beginPath(); ctx.ellipse(mouth.x, splitLocal + jaw / 2, mw, jaw / 2 + 6, 0, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#e0646c'
+        ctx.beginPath(); ctx.ellipse(mouth.x, splitLocal + jaw * 0.8, mw * 0.55, jaw * 0.28 + 3, 0, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.drawImage(face, 0, 0, face.width, splitPx, -FACE_W / 2, -FACE_H / 2, FACE_W, splitLocal + FACE_H / 2)
+      ctx.drawImage(face, 0, splitPx, face.width, face.height - splitPx, -FACE_W / 2, splitLocal + jaw, FACE_W, FACE_H / 2 - splitLocal)
     }
-    ctx.drawImage(face, 0, 0, face.width, splitPx, -FACE_W / 2, -FACE_H / 2, FACE_W, splitLocal + FACE_H / 2)
-    ctx.drawImage(face, 0, splitPx, face.width, face.height - splitPx, -FACE_W / 2, splitLocal + jaw, FACE_W, FACE_H / 2 - splitLocal)
 
     // allık
     if (this.blush > 0.02 || this.expression === 'happy' || this.expression === 'laugh') {
@@ -413,6 +462,9 @@ export class CharacterRenderer {
     const ink = '#1d1714'
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
     const ex = this.expression
+    // gerçekçi yüzde gözler, kaşlar ve ağız ağın kendisiyle oynar; üstüne yalnızca dil çizilir
+    const warped = !!this.warp?.ok
+    if (warped && ex !== 'tongue') return
 
     // kendiliğinden göz kırpma (yalnızca gözler gerçekten bulunduysa ve başka ifade yokken)
     if (ex === 'none' && this.blinkT > 0 && f.detected) {
@@ -466,9 +518,12 @@ export class CharacterRenderer {
       ctx.quadraticCurveTo(m.x + w * 1.1 + wag, m.y + 70, m.x + w, m.y + this.pose.jaw.value * JAW_PX * 0.5)
       ctx.closePath(); ctx.fill(); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(m.x + wag * 0.5, m.y + 20); ctx.lineTo(m.x + wag, m.y + 60); ctx.stroke()
-      // göz kırpma
-      const e = eyes[1]; lid(e); ctx.strokeStyle = ink; ctx.lineWidth = 7
-      ctx.beginPath(); ctx.moveTo(e.x - eyeR, e.y); ctx.quadraticCurveTo(e.x, e.y - eyeR * 0.5, e.x + eyeR, e.y); ctx.stroke()
+      // göz kırpma (gerçekçi yüzde kapak ağla iner)
+      if (!warped) {
+        const e = eyes[1]; lid(e); ctx.strokeStyle = ink; ctx.lineWidth = 7
+        ctx.beginPath(); ctx.moveTo(e.x - eyeR, e.y); ctx.quadraticCurveTo(e.x, e.y - eyeR * 0.5, e.x + eyeR, e.y); ctx.stroke()
+      }
+      if (warped) return
     }
     // kaşlar: ifade varken çizgi film kaşı (brow yayı oynatır)
     if (ex !== 'none' && ex !== 'dizzy') {

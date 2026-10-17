@@ -222,6 +222,7 @@ export class AnimationManager {
   }
 
   private slapImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 1)
     const p = this.char.pose
     p.headRot.impulse(-side * 11); p.headX.impulse(-side * 950); p.jaw.impulse(6); p.lean.impulse(-side * 0.9)
     p.armL.impulse(rand(3, 6)); p.armR.impulse(rand(3, 6))
@@ -271,6 +272,7 @@ export class AnimationManager {
   }
 
   private punchImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 1.3)
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 1150); p.headY.impulse(-260); p.headSquash.set(0.78)
     p.lean.impulse(-side * 1.5); p.squash.set(0.9); p.jaw.impulse(9); p.armL.impulse(5); p.armR.impulse(5)
@@ -319,6 +321,7 @@ export class AnimationManager {
   }
 
   private slipperImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 0.9)
     const p = this.char.pose
     p.headSquash.set(0.68); p.headY.impulse(380); p.squash.set(0.84); p.headRot.impulse(side * 3); p.jaw.impulse(7)
     const local = this.char.toHeadLocal(at)
@@ -370,6 +373,7 @@ export class AnimationManager {
   }
 
   private spongeImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 1.1)
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 700); p.headSquash.set(0.8); p.jaw.impulse(7); p.lean.impulse(-side * 1.2)
     this.setExpression('shut', 0.6, 2)
@@ -409,6 +413,7 @@ export class AnimationManager {
   }
 
   private pieImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 0.7)
     const p = this.char.pose
     p.headSquash.set(0.72); p.headRot.impulse(-side * 4); p.headY.impulse(-260); p.lean.impulse(-side * 0.6)
     const local = this.char.toHeadLocal(at)
@@ -480,6 +485,7 @@ export class AnimationManager {
   }
 
   private waterImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 0.3)
     const p = this.char.pose
     p.headRot.impulse(-side * 3); p.headSquash.set(0.88); p.jaw.impulse(5)
     const local = this.char.toHeadLocal(at)
@@ -575,6 +581,7 @@ export class AnimationManager {
   }
 
   private dizzyImpact(at: Vec, side: 1 | -1) {
+    this.char.impact(at, side, 0.8)
     const p = this.char.pose
     p.headSquash.set(0.74); p.squash.set(0.86); p.headRot.impulse(side * 4); p.wobble = this.reduced ? 0.35 : 1
     this.stars = { t: 0, life: 2.7 }

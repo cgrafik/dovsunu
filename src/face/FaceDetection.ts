@@ -71,6 +71,7 @@ export function featuresFromPoints(p: Vec[], crop: CropRect): FaceFeatures {
     leftEye: f(mid(p[33], p[133])), rightEye: f(mid(p[362], p[263])),
     mouth: f(mid(p[13], p[14])), mouthWidth: Math.hypot(mr.x - ml.x, mr.y - ml.y),
     nose: f(p[1]), detected: true,
+    mesh: p.slice(0, 468).map(f),
   }
 }
 
