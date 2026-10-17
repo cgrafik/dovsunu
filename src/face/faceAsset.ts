@@ -127,7 +127,7 @@ export function disposeFaceAsset(a: FaceAsset | null) {
   for (const c of [a.natural, a.cartoon]) { c.width = 0; c.height = 0 }
 }
 
-/** Fotoğraf yokken (açılış ekranı) kullanılan çizim maskot yüzü: "Taraftar Tayfun" */
+/** Fotoğraf yokken (açılış ekranı) kullanılan çizim maskot yüzü: "Tayfun" */
 export function createMascotFace(): FaceAsset {
   const c = canvas()
   const ctx = c.getContext('2d')!

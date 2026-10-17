@@ -14,9 +14,9 @@ interface Props {
 }
 
 export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Props) {
-  // Fotoğraf yokken önizleme: çizim maskot kendi kendine "oynar" (sessiz demo)
+  // Fotoğraf yokken önizleme: çizim maskot ortamları gezerek kendi kendine "oynar" (sessiz demo)
   const mascot = useMemo(() => createMascotFace(), [])
-  const demoLook = useMemo(() => ({ ...look, cartoon: false, jersey: { ...look.jersey, name: 'TAYFUN', number: '10' } }), [look])
+  const demoLook = useMemo(() => ({ ...look, cartoon: false, name: 'TAYFUN' }), [look])
 
   return (
     <main className="screen start">
@@ -26,13 +26,13 @@ export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Prop
       <div className="start-grid">
         <div className="start-actions">
           <h1 className="logo">
-            <span className="l1">TRİBÜN</span>
-            <span className="l2">ŞAKASI</span>
-            <span className="tag">Fotoğrafını yükle · taraftarına pasta at!</span>
+            <span className="l1">ŞAPLAK</span>
+            <span className="l2">ŞOV</span>
+            <span className="tag">Yüzünü yükle · ortamını seç · şaplağı bas!</span>
           </h1>
           <p className="muted" style={{ maxWidth: 440, lineHeight: 1.5, margin: 0 }}>
-            Yüzün tribündeki taraftar karakterine yerleşir. Sünger sopa, kremalı pasta, su tabancası, gıdıklama tüyü…
-            60 saniyede en yüksek komboyu yap!
+            Yüklediğin yüz karaktere uyarlanır. Ofiste, ringde, mutfakta, sınıfta, plajda ya da evde:
+            tokat, boks eldiveni, terlik, kremalı pasta… 60 saniyede en yüksek komboyu yap, nakavt et!
           </p>
           <div className="row">
             <button className="btn big red" onClick={onStart}>Oyuna Başla</button>
@@ -42,7 +42,7 @@ export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Prop
         </div>
         <div className="start-stage">
           <GameCanvas face={mascot} look={demoLook} mode="demo" sound={sound} reducedMotion={reducedMotion}
-            label="Örnek taraftar karakteri: pasta yiyor, su ile ıslanıyor, gıdıklanıyor" />
+            label="Örnek karakter farklı ortamlarda: tokat yiyor, terlik ve pasta geliyor" />
         </div>
       </div>
     </main>

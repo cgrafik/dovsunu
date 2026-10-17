@@ -21,7 +21,7 @@ interface Props {
 
 export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, onExit }: Props) {
   const [engine, setEngine] = useState<GameEngine | null>(null)
-  const [selected, setSelected] = useState<ToolId>('sponge')
+  const [selected, setSelected] = useState<ToolId>('slap')
   const [round, setRound] = useState(0)
   const engineRef = useRef<GameEngine | null>(null)
   const finishedRef = useRef(false)
@@ -41,7 +41,7 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
     onFinish({ image, stats: score.getSnapshot() })
   }, [score, onFinish])
 
-  // klavye: 1–7 araç, Boşluk seçili araç
+  // klavye: 1–8 araç, Boşluk seçili araç
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || (e.target as HTMLElement)?.closest('input, textarea, [role="dialog"]')) return
@@ -72,7 +72,7 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
               <SoundControl sound={sound} />
             </div>
           </div>
-          {!snap.started && <div className="hint-start">👆 Karaktere dokun ya da aşağıdan araç seç!</div>}
+          {!snap.started && <div className="hint-start">👆 Karaktere dokun ya da bir araç seç!</div>}
         </div>
         <div className="tools-wrap">
           <GameControls engine={engine} selected={selected} disabled={snap.finished} onSelect={setSelected} onFire={fire} />

@@ -29,18 +29,18 @@ export interface FaceAsset {
   skin: string
 }
 
-export type ToolId = 'sponge' | 'pie' | 'water' | 'tickle' | 'face' | 'dizzy' | 'cheer'
+export type ToolId = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'dizzy' | 'tickle'
 
-export interface JerseyStyle {
-  primary: string
-  secondary: string
-  name: string
-  number: string
-}
+export type SceneId = 'office' | 'ring' | 'kitchen' | 'school' | 'beach' | 'home'
 
 export interface CharacterLook {
   cartoon: boolean
-  jersey: JerseyStyle
+  /** Oyuncunun seçtiği ortam: arka plan, ön eşya, kıyafet ve şapka buna göre çizilir */
+  scene: SceneId
+  /** Kıyafetin ana rengi */
+  color: string
+  /** Ortamdaki tabelada görünen ad (isteğe bağlı) */
+  name: string
 }
 
 /** Karakterin o anki ifadesi (yüzün üstüne çizilen çizgi film katmanları) */

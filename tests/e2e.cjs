@@ -1,5 +1,5 @@
 // Uçtan uca test (Playwright, yerel önizleme sunucusu): node tests/e2e.cjs [masaustu|telefon]
-// Akış: açılış → fotoğraf (tek yüz) → karakter → 7 araç + ıska + ses aç/kapa → bitir → sonuç → tekrar →
+// Akış: açılış → fotoğraf (tek yüz) → 6 ortam → 8 araç + nakavt + ıska + ses aç/kapa → bitir → sonuç → tekrar →
 //       yeni fotoğraf (iki yüz → seçim) → yeni fotoğraf (yüzsüz → elle kırpma). Konsol hataları toplanır.
 const { chromium } = require(process.env.HOME + '/.cache/mh-shot/node_modules/playwright')
 const path = require('path'), fs = require('fs')
@@ -55,22 +55,29 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   // kırpma etkileşimi: yakınlaştırma kaydırıcısı
   await p.locator('.crop-controls input[type=range]').first().fill('1.2')
   await p.getByRole('button', { name: 'Karakteri Oluştur' }).click()
-  await p.getByRole('button', { name: /Tribüne Çık/ }).waitFor({ timeout: 30000 }); await sleep(1500)
+  await p.getByRole('button', { name: /^Başla!/ }).waitFor({ timeout: 30000 }); await sleep(1500)
   await shot('4-karakter'); await noOverflow('karakter')
-  await p.getByLabel('Çizgi film filtresi', { exact: false }).check(); await sleep(400)
-  await p.getByRole('button', { name: 'Sarı–Lacivert' }).click()
-  await p.getByLabel('Formadaki isim').fill('Mehmet')
-  await p.getByLabel('Numara').fill('7'); await sleep(800)
+  // her ortam: önizleme çizilir, ortam düğmesi seçili görünür
+  await p.getByLabel('Tabeladaki ad', { exact: false }).fill('Mehmet')
+  for (const [id, name] of [['ofis', 'Ofis'], ['ring', 'Boks Ringi'], ['mutfak', 'Mutfak'], ['sinif', 'Sınıf'], ['plaj', 'Plaj'], ['ev', 'Ev']]) {
+    await p.getByRole('button', { name: new RegExp('^\\S*\\s*' + name) }).first().click(); await sleep(900)
+    ok(await p.locator('.scene-card[aria-pressed=true] .name').textContent() === name, `ortam seçildi: ${name}`)
+    await p.locator('.preview-stage canvas').click({ position: { x: 200, y: 200 } }); await sleep(450)
+    await shot(`5-ortam-${id}`)
+  }
+  await p.getByRole('button', { name: 'Mor' }).click()
+  await p.getByLabel('Çizgi film filtresi', { exact: false }).check(); await sleep(600)
   await shot('5-karakter-ozel')
   await p.getByLabel('Çizgi film filtresi', { exact: false }).uncheck()
+  await p.getByRole('button', { name: /Boks Ringi/ }).click(); await sleep(400)
 
   // 3) oyun
-  await p.getByRole('button', { name: /Tribüne Çık/ }).click(); await sleep(1500)
+  await p.getByRole('button', { name: /^Başla!/ }).click(); await sleep(1500)
   ok(await p.locator('.hint-start').isVisible(), 'oyun: başlangıç ipucu görünüyor')
   await noOverflow('oyun')
   const v0 = await voices()
   let last = 0
-  const tools = ['Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Gıdıklama Tüyü', 'Komik Surat', 'Lastik Tavuk', 'Tezahürat']
+  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü']
   for (const [i, t] of tools.entries()) {
     await p.getByRole('button', { name: new RegExp(t) }).click()
     await sleep(300); await shot(`6-arac-${i + 1}`)
@@ -85,16 +92,18 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   // canvas'a dokunuş: karakterin kafası (merkez üstü) ve boş alan (ıska)
   const box = await p.locator('.game-stage canvas').boundingBox()
   await p.keyboard.press('1'); await sleep(450)
-  const sKey = await scoreText(); ok(sKey > last, `klavye 1: sopa (${last} → ${sKey})`); last = sKey
+  const sKey = await scoreText(); ok(sKey > last, `klavye 1: tokat (${last} → ${sKey})`); last = sKey
   // kafanın ekran konumu: dünya 800×1000, genişliğe/yüksekliğe sığdırılır ve alta yaslanır; kafa ≈ dünya (400, 440)
   const sc = Math.min(box.width / 800, box.height / 1000)
   const headX = box.x + (box.width - 800 * sc) / 2 + 400 * sc, headY = box.y + (box.height - 1000 * sc) + 440 * sc
-  await p.mouse.click(headX, headY); await sleep(500)
+  await p.mouse.click(headX, headY); await sleep(420)
+  await shot('6-nakavt')
   const sTap = await scoreText(); ok(sTap > last, `karaktere dokunuş puan verdi (${last} → ${sTap})`); last = sTap
+  ok(Number(await p.locator('.chip.combo .v').textContent()) >= 10, 'kombo 10: nakavt anı')
   await p.mouse.click(box.x + 8, box.y + box.height * 0.6); await sleep(400)
   ok(Number(await p.locator('.chip.combo .v').textContent()) === 0, 'boşluğa dokunuş: ıska, kombo sıfırlandı')
   // spam: 25 hızlı tıklama — sistem bozulmamalı
-  for (let i = 0; i < 25; i++) { await p.keyboard.press(String((i % 7) + 1)); await sleep(30) }
+  for (let i = 0; i < 25; i++) { await p.keyboard.press(String((i % 8) + 1)); await sleep(30) }
   await sleep(1500); await shot('7-spam-sonrasi')
   // ses kapat: yeni ses üretilmemeli
   await p.getByRole('button', { name: 'Sesi kapat' }).first().click(); await sleep(300)
@@ -128,7 +137,7 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await shot('9-iki-yuz')
   await p.locator('.face-pick button').nth(1).click()
   await p.getByRole('button', { name: 'Karakteri Oluştur' }).click()
-  await p.getByRole('button', { name: /Tribüne Çık/ }).waitFor({ timeout: 30000 })
+  await p.getByRole('button', { name: /^Başla!/ }).waitFor({ timeout: 30000 })
   ok(true, 'iki yüz: seçilen yüzle karakter oluştu')
 
   // 7) yüzsüz → elle kırpma
@@ -141,7 +150,7 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await p.mouse.move(view.x + view.width / 2 + 40, view.y + view.height / 2 + 20, { steps: 5 }); await p.mouse.up()
   await shot('10-elle-kirpma')
   await p.getByRole('button', { name: 'Karakteri Oluştur' }).click()
-  await p.getByRole('button', { name: /Tribüne Çık/ }).waitFor({ timeout: 30000 })
+  await p.getByRole('button', { name: /^Başla!/ }).waitFor({ timeout: 30000 })
   ok(true, 'yüzsüz: elle kırpılan görselle karakter oluştu')
   // geçersiz dosya türü
   await p.getByRole('button', { name: /Fotoğrafı değiştir/ }).click(); await sleep(400)

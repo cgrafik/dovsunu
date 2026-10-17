@@ -17,7 +17,7 @@ interface Props {
 }
 
 /**
- * Canvas + oyun motoru köprüsü. Motor yalnızca yüz/mod değişince yeniden kurulur; görünüm (forma rengi vb.)
+ * Canvas + oyun motoru köprüsü. Motor yalnızca yüz/mod değişince yeniden kurulur; görünüm (ortam, kıyafet rengi vb.)
  * motoru yeniden başlatmadan iletilir. Bileşen kalkınca motor, döngü ve dinleyiciler temizlenir.
  */
 export function GameCanvas({ face, look, mode, sound, score, reducedMotion, onEngine, onFinish, label }: Props) {

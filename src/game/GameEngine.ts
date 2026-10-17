@@ -3,6 +3,7 @@
 import { AnimationManager, randomTool } from './AnimationManager'
 import { CharacterRenderer } from './CharacterRenderer'
 import { clamp, pick, rand } from './math'
+import { SCENES, drawSceneBack, drawSceneFront, sceneById } from './scenes'
 import type { ScoreManager } from './ScoreManager'
 import type { SoundManager } from './SoundManager'
 import { toolById } from './tools'
@@ -20,10 +21,8 @@ export interface EngineOptions {
   onFinish?: () => void
 }
 
-interface CrowdFan { x: number; y: number; r: number; body: string; skin: string; phase: number; arms: boolean }
-
-const FAN_COLORS = ['#E04848', '#F2C14E', '#3D7DCA', '#F4F1E8', '#2E9E6B', '#8C5BD8', '#F28C38', '#1B1F3B']
-const FAN_SKIN = ['#F2C6A0', '#D9A27A', '#B87A54', '#8A5838', '#F5D0B5']
+/** Kombo bu sayının katına ulaşınca karakter nakavt olur */
+const KO_EVERY = 10
 
 export class GameEngine {
   readonly char: CharacterRenderer
@@ -40,11 +39,14 @@ export class GameEngine {
   private offY = 0
   private shakeAmt = 0
   private excite = 0
-  private crowd: CrowdFan[] = []
   private t = 0
-  private selected: ToolId = 'sponge'
+  private selected: ToolId = 'slap'
   private readyAt = new Map<ToolId, number>()
   private demoIn = 1.2
+  /** Demo: ortamlar sırayla gezilir */
+  private demoSceneIn = 6
+  /** Boşta beklerken karakter ortama özgü bir laf eder */
+  private idleIn = 3.5
   private finished = false
   private prevMult = 1
   private ro: ResizeObserver
@@ -59,7 +61,6 @@ export class GameEngine {
       shake: (a) => { this.shakeAmt = Math.min(22, this.shakeAmt + a) },
       excite: (a) => { this.excite = Math.min(1, this.excite + a) },
     }, opts.reducedMotion)
-    this.buildCrowd()
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
     this.resize()
@@ -70,8 +71,6 @@ export class GameEngine {
     if (this.running) return
     this.running = true
     this.last = performance.now()
-    // Yazı tipi (forma numarası, çizgi film yazıları) yüklenmeden ilk kare çizilmesin diye beklemeye gerek yok;
-    // yüklendiğinde sonraki kareler zaten doğru yazıyla çizilir.
     this.raf = requestAnimationFrame(this.frame)
   }
 
@@ -102,6 +101,8 @@ export class GameEngine {
     const point = at ?? (def.target === 'head' ? this.char.headCenter() : this.char.bodyToWorld({ x: rand(-50, 50), y: -150 }))
     const zone = at ? this.char.hitZone(at) : def.target
     this.readyAt.set(tool, now + def.cooldown)
+    this.idleIn = rand(5, 8)
+    this.excite = Math.min(1, this.excite + 0.15)
 
     if (this.opts.mode === 'play' && this.opts.score) {
       const r = this.opts.score.hit(tool, now)
@@ -116,6 +117,14 @@ export class GameEngine {
         this.opts.sound.play('combo', r.multiplier * 2)
         this.anim.floater(`KOMBO ×${r.multiplier.toLocaleString('tr-TR')}!`, { x: 160, y: 420 }, '#FF4B3E')
         this.excite = Math.min(1, this.excite + 0.4)
+      }
+      if (r.combo % KO_EVERY === 0) {
+        // nakavt: kafaya gelen efektin çarpması bitince
+        setTimeout(() => {
+          if (!this.running) return
+          this.anim.knockout()
+          if (this.char.look.scene === 'ring') this.opts.sound.play('cheer')
+        }, 260)
       }
       if (r.milestone) {
         this.anim.showBanner(r.milestone)
@@ -150,8 +159,8 @@ export class GameEngine {
     this.opts.sound.unlock()
     const at = this.toWorld(e.clientX, e.clientY)
     if (this.opts.mode === 'preview') {
-      // önizleme: karaktere dokununca küçük bir şaka (puan yok)
-      if (this.char.hitZone(at) !== 'none') this.useTool(pick(['face', 'cheer', 'tickle'] as const), at)
+      // önizleme: karaktere dokununca küçük bir deneme (puan yok)
+      if (this.char.hitZone(at) !== 'none') this.useTool(pick(['slap', 'pie', 'tickle', 'slipper'] as const), at)
       return
     }
     const zone = this.char.hitZone(at)
@@ -167,17 +176,8 @@ export class GameEngine {
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h }
     this.scale = Math.min(w / WORLD_W, h / WORLD_H)
     this.offX = (w - WORLD_W * this.scale) / 2
-    // Dikey fazlalık (telefon) üste verilir: karakter tribünde alta oturur, üstte gökyüzü + projektör (skor şeridinin altı)
+    // Dikey fazlalık (telefon) üste verilir: karakter ve öndeki eşya alta oturur, ortamın üst kısmı uzar
     this.offY = h - WORLD_H * this.scale
-  }
-
-  private buildCrowd() {
-    const rows = [470, 545, 620, 695, 770]
-    for (const [ri, y] of rows.entries()) {
-      for (let x = -520 + (ri % 2) * 34; x < 1320; x += rand(58, 72)) {
-        this.crowd.push({ x, y: y + rand(-6, 6), r: rand(20, 26) + ri * 1.5, body: pick(FAN_COLORS), skin: pick(FAN_SKIN), phase: rand(0, 6), arms: Math.random() < 0.3 })
-      }
-    }
   }
 
   // ── Döngü ────────────────────────────────────────────────────────────────────
@@ -209,86 +209,47 @@ export class GameEngine {
       if (after === 0) this.prevMult = 1
       if (ended) {
         this.finished = true
-        this.anim.showBanner('Düdük çaldı!')
-        this.opts.sound.play('cheer')
+        this.anim.showBanner(sceneById(this.char.look.scene).finish)
+        this.opts.sound.play('bell')
         this.excite = 1
         setTimeout(() => this.opts.onFinish?.(), 1400)
       }
     }
     if (this.opts.mode === 'demo') {
       this.demoIn -= dt
-      if (this.demoIn <= 0 && !this.anim.busy) { this.useTool(randomTool()); this.demoIn = rand(1.6, 2.6) }
+      if (this.demoIn <= 0 && !this.anim.busy) { this.useTool(randomTool()); this.demoIn = rand(1.4, 2.4) }
+      this.demoSceneIn -= dt
+      if (this.demoSceneIn <= 0) {
+        const i = SCENES.findIndex(s => s.id === this.char.look.scene)
+        const next = SCENES[(i + 1) % SCENES.length]
+        this.char.look = { ...this.char.look, scene: next.id, color: next.color }
+        this.anim.clear()
+        this.demoSceneIn = 6
+      }
+    } else if (!this.finished) {
+      this.idleIn -= dt
+      if (this.idleIn <= 0 && !this.anim.busy) { this.anim.sayLine(); this.idleIn = rand(6, 10) }
     }
   }
 
   private draw() {
     const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height
+    const look = this.char.look
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    // gökyüzü / stat zemini (tüm canvas)
-    const g = ctx.createLinearGradient(0, 0, 0, h)
-    g.addColorStop(0, '#0B2A20'); g.addColorStop(0.55, '#123B2C'); g.addColorStop(1, '#0E2F23')
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = sceneById(look.scene).base
+    ctx.fillRect(0, 0, w, h)
 
     const sx = this.shakeAmt > 0.1 ? rand(-1, 1) * this.shakeAmt * this.scale : 0
     const sy = this.shakeAmt > 0.1 ? rand(-1, 1) * this.shakeAmt * this.scale : 0
     const screen = new DOMMatrix([this.scale, 0, 0, this.scale, this.offX + sx, this.offY + sy])
     ctx.setTransform(screen)
 
-    this.drawStadium(ctx)
+    const state = { t: this.t, excite: this.opts.reducedMotion ? this.excite * 0.3 : this.excite, name: look.name, color: look.color }
+    drawSceneBack(ctx, look.scene, state)
     this.char.draw(ctx, screen)
     this.anim.drawHeadLayer(ctx, screen)
     ctx.setTransform(screen)
-    this.drawRailing(ctx)
+    drawSceneFront(ctx, look.scene, state)
     this.anim.drawFront(ctx)
-  }
-
-  private drawStadium(ctx: CanvasRenderingContext2D) {
-    // projektör ışıkları
-    for (const x of [60, 740]) {
-      const lg = ctx.createRadialGradient(x, 40, 10, x, 40, 420)
-      lg.addColorStop(0, 'rgba(255,248,220,0.55)'); lg.addColorStop(0.15, 'rgba(255,248,220,0.18)'); lg.addColorStop(1, 'rgba(255,248,220,0)')
-      ctx.fillStyle = lg; ctx.fillRect(x - 440, -400, 880, 880)
-      ctx.fillStyle = '#FFF8DC'
-      for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { ctx.beginPath(); ctx.arc(x - 24 + i * 24, 30 + j * 22, 8, 0, Math.PI * 2); ctx.fill() }
-    }
-    // tribün basamakları
-    ctx.fillStyle = 'rgba(255,255,255,0.04)'
-    for (let i = 0; i < 6; i++) ctx.fillRect(-600, 440 + i * 75, 2000, 36)
-    // kalabalık (coşkuyla zıplar)
-    const ex = this.excite, red = this.opts.reducedMotion ? 0.3 : 1
-    for (const f of this.crowd) {
-      const jump = Math.max(0, Math.sin(this.t * (5 + ex * 6) + f.phase)) * (4 + ex * 22) * red
-      const y = f.y - jump
-      ctx.globalAlpha = 0.9
-      ctx.fillStyle = f.body
-      ctx.beginPath(); ctx.roundRect(f.x - f.r * 1.15, y + f.r * 0.7, f.r * 2.3, f.r * 2.4, f.r * 0.8); ctx.fill()
-      if (f.arms && ex > 0.35) {
-        ctx.strokeStyle = f.body; ctx.lineWidth = f.r * 0.45; ctx.lineCap = 'round'
-        ctx.beginPath(); ctx.moveTo(f.x - f.r, y + f.r); ctx.lineTo(f.x - f.r * 1.5, y - f.r * 1.2)
-        ctx.moveTo(f.x + f.r, y + f.r); ctx.lineTo(f.x + f.r * 1.5, y - f.r * 1.2); ctx.stroke()
-      }
-      ctx.fillStyle = f.skin
-      ctx.beginPath(); ctx.arc(f.x, y, f.r, 0, Math.PI * 2); ctx.fill()
-    }
-    ctx.globalAlpha = 1
-    // karakteri öne çıkaran yumuşak ışık halkası
-    const hg = ctx.createRadialGradient(400, 560, 60, 400, 560, 420)
-    hg.addColorStop(0, 'rgba(255,244,224,0.22)'); hg.addColorStop(1, 'rgba(255,244,224,0)')
-    ctx.fillStyle = hg; ctx.fillRect(-20, 140, 840, 840)
-  }
-
-  /** Ön korkuluk + pankart: karakter "tribünde" durur, bacaklar görünmez */
-  private drawRailing(ctx: CanvasRenderingContext2D) {
-    const { primary, secondary } = this.char.look.jersey
-    ctx.fillStyle = '#0A2219'; ctx.fillRect(-600, 930, 2000, 200)
-    ctx.fillStyle = '#C8CED6'; ctx.fillRect(-600, 880, 2000, 14)
-    ctx.fillStyle = '#8D96A3'; for (let x = -560; x < 1400; x += 130) ctx.fillRect(x, 880, 10, 70)
-    // pankart
-    ctx.save(); ctx.translate(400, 942); ctx.rotate(-0.012)
-    ctx.fillStyle = primary; ctx.beginPath(); ctx.roundRect(-300, -36, 600, 82, 6); ctx.fill()
-    ctx.fillStyle = secondary; ctx.fillRect(-300, -36, 600, 9); ctx.fillRect(-300, 37, 600, 9)
-    ctx.fillStyle = secondary; ctx.font = '400 40px "Bungee", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText('TRİBÜN ŞAKASI', 0, 6)
-    ctx.restore()
   }
 }

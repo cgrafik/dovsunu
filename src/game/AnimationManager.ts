@@ -1,11 +1,12 @@
 // Merkezi animasyon denetimi: araç efektleri, karakter tepkileri, ifadeler, parçacıklar, yazılar, balonlar.
-// • Her araç bir "efekt" başlatır (uçan pasta, sallanan sopa…); çarpma anında tepki (ses + poz itkisi + ifade + yazı).
-// • İfadeler öncelikli: daha önemli tepki (sersemleme) varken önemsiz olan (surat) onu bozmaz.
+// • Her araç bir "efekt" başlatır (tokat eli, yaylı eldiven, uçan terlik, pasta…); çarpma anında tepki (ses + poz itkisi + ifade + yazı).
+// • İfadeler öncelikli: daha önemli tepki (nakavt) varken önemsiz olan onu bozmaz.
 // • Sınırlar: en çok MAX_PARTICLES parçacık, MAX_EFFECTS efekt, 6 yazı — çok hızlı basılsa da sistem bozulmaz.
 import type { CharacterRenderer } from './CharacterRenderer'
 import { FACE_H, FACE_W } from './CharacterRenderer'
 import type { SoundId } from './SoundManager'
 import { clamp, easeInCubic, easeOutBack, easeOutCubic, lerp, pick, pickIndexAvoiding, rand } from './math'
+import { sceneById } from './scenes'
 import type { Expression, ToolId, Vec } from './types'
 
 const MAX_PARTICLES = 500
@@ -14,7 +15,7 @@ const MAX_EFFECTS = 14
 export interface AnimHooks {
   sound: (id: SoundId, k?: number) => void
   shake: (amount: number) => void
-  /** Arka plandaki kalabalığı coştur (0..1) */
+  /** Sahneyi coştur (0..1): kalabalık, saat, tablo… */
   excite: (amount: number) => void
 }
 
@@ -26,7 +27,13 @@ interface Particle {
 
 interface Effect { t: number; dur: number; update(dt: number): void; draw(ctx: CanvasRenderingContext2D): void }
 
-interface Decal { kind: 'cream' | 'wet'; t: number; life: number; blobs: { x: number; y: number; r: number; drip: number; speed: number }[] }
+interface Decal {
+  kind: 'cream' | 'wet' | 'hand' | 'bump'
+  t: number; life: number
+  blobs: { x: number; y: number; r: number; drip: number; speed: number }[]
+  /** el izi / şişlik: kafa yerel konum + açı */
+  x?: number; y?: number; rot?: number
+}
 interface PopText { text: string; x: number; y: number; t: number; life: number; color: string; rot: number; size: number }
 interface Floater { text: string; x: number; y: number; t: number; life: number; color: string }
 interface Bubble { text: string; t: number; life: number }
@@ -35,25 +42,27 @@ const FONT_DISPLAY = '"Bungee", system-ui, sans-serif'
 const FONT_BODY = '"Nunito Variable", "Nunito", system-ui, sans-serif'
 
 const BUBBLES: Record<ToolId, readonly string[]> = {
-  sponge: ['Ayyy!', 'Faul bu!', 'Hakem!', 'Kırmızı kart!', 'Penaltııı!'],
-  pie: ['Kremalı mı bu?!', 'Gözüm!', 'Tatlı maç!', 'Bu da mı VAR?'],
-  water: ['Yağmur mu yağıyor?', 'Islandım!', 'Hayır, saçım!', 'Soğuuk!'],
+  slap: ['Ayyy!', 'Yanağım!', 'Bu neydi?!', 'Şaka mı bu?!'],
+  punch: ['Yıldızları gördüm!', 'Ufff!', 'Bu yumruk muydu?', 'Hakem!'],
+  slipper: ['Anne?!', 'Terlik mi uçtu?!', 'Kaçamadım!', 'Uslu duracağım!'],
+  sponge: ['Ayyy!', 'Kafam!', 'Yumuşakmış ama!', 'Yine mi?!'],
+  pie: ['Kremalı mı bu?!', 'Gözüm!', 'Diyetteyim!', 'Çilekli mi?'],
+  water: ['Islandım!', 'Hayır, saçım!', 'Soğuuk!', 'Yağmur mu yağıyor?'],
+  dizzy: ['Neredeyim?', 'Yıldızlar...', 'Bugün günlerden ne?', 'Tavuk mu konuştu?'],
   tickle: ['Hahaha dur!', 'Gıdıklanıyorum!', 'Yapmaa!', 'Hihihi!'],
-  face: ['Şuna bak!', 'Böhöö!', 'Ciddiyim!', 'Poz veriyorum!'],
-  dizzy: ['Neredeyim?', 'Skor kaç?', 'Yıldızlar...', 'Hangi maçtayız?'],
-  cheer: ['Şampiyon!', 'Bu maç bizim!', 'Oleey oley!', 'Tribünler ayakta!'],
 }
 const TEXTS: Record<ToolId, readonly string[]> = {
+  slap: ['ŞAAP!', 'ŞLAK!', 'TOKAT!', 'ŞAK!'],
+  punch: ['POW!', 'GÜM!', 'DAN!', 'KÜT!'],
+  slipper: ['TAK!', 'PAT!', 'ŞAPP!', 'TIK!'],
   sponge: ['BONK!', 'POF!', 'PAT!', 'DONK!'],
   pie: ['ŞLAP!', 'ŞAP!', 'PLOF!'],
   water: ['FIŞŞ!', 'ŞIPP!', 'VIZZ!'],
-  tickle: ['KIKIR!', 'HİHİ!', 'GIDI GIDI!'],
-  face: ['BOİNG!', 'HOPPA!', 'TADAA!'],
   dizzy: ['ZONK!', 'GAKK!', 'BIDIK!'],
-  cheer: ['OLEEEY!', 'GOOOL!', 'HADİ BE!'],
+  tickle: ['KIKIR!', 'HİHİ!', 'GIDI GIDI!'],
 }
 const TEXT_COLORS: Record<ToolId, string> = {
-  sponge: '#FFC93C', pie: '#FF8FB1', water: '#5BC0EB', tickle: '#FF9F43', face: '#B98CFF', dizzy: '#FFE066', cheer: '#7BE495',
+  slap: '#FF8FB1', punch: '#FF4B3E', slipper: '#5BC0EB', sponge: '#FFC93C', pie: '#FFB3C7', water: '#7FD3FF', dizzy: '#FFE066', tickle: '#FF9F43',
 }
 const CONFETTI = ['#FFC93C', '#FF4B3E', '#5BC0EB', '#7BE495', '#FFFFFF', '#B98CFF']
 
@@ -70,7 +79,7 @@ export class AnimationManager {
   private now = 0
   private exprUntil = 0
   private exprPrio = 0
-  private lastFace = -1
+  private lastLine = -1
   private lastBubble = new Map<ToolId, number>()
   private char: CharacterRenderer
   private hooks: AnimHooks
@@ -129,10 +138,39 @@ export class AnimationManager {
 
   say(tool: ToolId, chance = 1) {
     if (Math.random() > chance) return
+    if (Math.random() < 0.3) { this.sayLine(); return }
     const list = BUBBLES[tool]
     const i = pickIndexAvoiding(list.length, this.lastBubble.get(tool) ?? -1)
     this.lastBubble.set(tool, i)
     this.bubble = { text: list[i], t: 0, life: 1.7 }
+  }
+
+  /** Ortama özgü laf (boşta beklerken de söylenir) */
+  sayLine() {
+    const lines = sceneById(this.char.look.scene).lines
+    this.lastLine = pickIndexAvoiding(lines.length, this.lastLine)
+    this.bubble = { text: lines[this.lastLine], t: 0, life: 2.2 }
+  }
+
+  /** Her 10 komboda: karakter nakavt olur (yıldızlar, sersem gözler, konfeti) */
+  knockout() {
+    const p = this.char.pose
+    p.wobble = this.reduced ? 0.35 : 1; p.headSquash.set(0.8); p.squash.set(0.85); p.armL.impulse(5); p.armR.impulse(5)
+    this.stars = { t: 0, life: 2.6 }
+    this.setExpression('dizzy', 2.4, 4)
+    this.hooks.sound('dizzy'); this.hooks.sound('bell')
+    this.hooks.excite(1)
+    const h = this.char.headCenter()
+    // o anki laf balonu ve vuruş yazıları "NAKAVT!" ile üst üste binmesin
+    this.bubble = null
+    this.texts = this.texts.filter(t => t.t > t.life * 0.6)
+    this.texts.push({ text: 'NAKAVT!', x: 400, y: 150, t: 0, life: 1.4, color: '#FF4B3E', rot: -0.06, size: 92 })
+    this.burst({ x: h.x, y: h.y - 120 }, 26, 'confetti', CONFETTI, [250, 650], { gravity: 600, life: 1.4, max: 1.4 })
+  }
+
+  private addDecal(d: Decal) {
+    if (this.decals.length >= 7) this.decals.shift()
+    this.decals.push(d)
   }
 
   showBanner(text: string) { this.banner = { text, t: 0, life: 2.3 } }
@@ -146,14 +184,153 @@ export class AnimationManager {
     const target = zone === 'head' ? at : head
     const side: 1 | -1 = at.x >= head.x ? 1 : -1
     switch (tool) {
+      case 'slap': this.effects.push(this.slapSwing(target, side)); break
+      case 'punch': this.effects.push(this.gloveSpring(target, side)); break
+      case 'slipper': this.effects.push(this.slipperThrow(side)); break
       case 'sponge': this.effects.push(this.spongeSwing(target, side)); break
       case 'pie': this.effects.push(this.pieThrow(target, side)); break
       case 'water': this.effects.push(this.waterSquirt(target, side)); break
-      case 'tickle': this.effects.push(this.feather(zone === 'body' ? at : this.char.bodyToWorld({ x: rand(-60, 60), y: -150 }))); break
-      case 'face': this.funnyFace(); break
       case 'dizzy': this.effects.push(this.chickenBop(side)); break
-      case 'cheer': this.cheer(); break
+      case 'tickle': this.effects.push(this.feather(zone === 'body' ? at : this.char.bodyToWorld({ x: rand(-60, 60), y: -150 }))); break
     }
+  }
+
+  // Tokat: dev çizgi film eli yandan savrulur, yanakta kırmızı el izi kalır
+  private slapSwing(target: Vec, side: 1 | -1): Effect {
+    const IN = 0.15
+    let hit = false
+    this.hooks.sound('whoosh')
+    const self: Effect = {
+      t: 0, dur: 0.5,
+      update: (dt) => { self.t += dt; if (!hit && self.t >= IN) { hit = true; this.slapImpact(target, side) } },
+      draw: (ctx) => {
+        const t = self.t
+        const u = t < IN ? easeInCubic(t / IN) : 1 - easeOutCubic(Math.min(1, (t - IN) / 0.3)) * 0.8
+        const x = target.x + side * lerp(430, 70, u), y = target.y + lerp(-60, 10, u)
+        ctx.save(); ctx.globalAlpha = t > 0.35 ? clamp(1 - (t - 0.35) / 0.15, 0, 1) : 1
+        // hız çizgileri
+        if (t < IN + 0.05) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 6; ctx.lineCap = 'round'
+          for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + side * 90, y + i * 34); ctx.lineTo(x + side * 190, y + i * 34); ctx.stroke() }
+        }
+        ctx.translate(x, y); ctx.rotate(side * (0.35 - u * 0.5)); ctx.scale(side, 1)
+        drawCartoonHand(ctx)
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  private slapImpact(at: Vec, side: 1 | -1) {
+    const p = this.char.pose
+    p.headRot.impulse(-side * 11); p.headX.impulse(-side * 950); p.jaw.impulse(6); p.lean.impulse(-side * 0.9)
+    p.armL.impulse(rand(3, 6)); p.armR.impulse(rand(3, 6))
+    this.addDecal({ kind: 'hand', t: 0, life: 4.5, blobs: [], x: side * FACE_W * 0.24, y: FACE_H * 0.06, rot: side * rand(0.1, 0.4) })
+    this.char.blush = 1
+    this.setExpression('shut', 0.45, 2)
+    this.schedule(0.45, () => this.setExpression('shock', 0.7, 1))
+    this.hooks.sound('slap')
+    if (Math.random() < 0.45) this.schedule(0.12, () => this.hooks.sound('yell'))
+    this.popText('slap', at)
+    this.burst(at, 12, 'spark', ['#FFFFFF', '#FFB3C7', '#FFE066'], [250, 600], { gravity: 300 })
+    this.shake(11)
+    this.say('slap', 0.4)
+  }
+
+  // Boks eldiveni: ekran kenarından yaylı kolla fırlar, kafa geriye savrulur
+  private gloveSpring(target: Vec, side: 1 | -1): Effect {
+    const base = { x: side > 0 ? 880 : -80, y: clamp(target.y + 30, 200, 900) }
+    const reach = { x: target.x + side * 70, y: target.y + 10 }
+    const OUT = 0.11
+    let hit = false
+    this.hooks.sound('boing', 0.6)
+    const self: Effect = {
+      t: 0, dur: 0.55,
+      update: (dt) => { self.t += dt; if (!hit && self.t >= OUT) { hit = true; this.punchImpact(target, side) } },
+      draw: (ctx) => {
+        const t = self.t
+        const u = t < OUT ? easeOutCubic(t / OUT) : t < 0.22 ? 1 : 1 - easeInCubic(Math.min(1, (t - 0.22) / 0.3))
+        const g = { x: lerp(base.x, reach.x, u), y: lerp(base.y, reach.y, u) }
+        // yay (zikzak)
+        const n = 12, dx = g.x - base.x, dy = g.y - base.y, len = Math.hypot(dx, dy) || 1
+        const nx = -dy / len, ny = dx / len
+        ctx.strokeStyle = '#9AA4AF'; ctx.lineWidth = 8; ctx.lineJoin = 'round'
+        ctx.beginPath(); ctx.moveTo(base.x, base.y)
+        for (let i = 1; i < n; i++) { const k = i / n, o = (i % 2 ? 1 : -1) * 22; ctx.lineTo(base.x + dx * k + nx * o, base.y + dy * k + ny * o) }
+        ctx.lineTo(g.x, g.y); ctx.stroke()
+        ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(Math.atan2(-dy, -dx) + Math.PI)
+        ctx.fillStyle = '#F4F1E8'; ctx.beginPath(); ctx.roundRect(-74, -34, 34, 68, 10); ctx.fill()
+        ctx.fillStyle = '#D7263D'; ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 5
+        ctx.beginPath(); ctx.ellipse(0, 0, 62, 54, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+        ctx.beginPath(); ctx.ellipse(-14, -44, 30, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(10, 18, 30, 12, 0, 0, Math.PI * 2); ctx.fill()
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  private punchImpact(at: Vec, side: 1 | -1) {
+    const p = this.char.pose
+    p.headRot.impulse(-side * 7); p.headX.impulse(-side * 1150); p.headY.impulse(-260); p.headSquash.set(0.78)
+    p.lean.impulse(-side * 1.5); p.squash.set(0.9); p.jaw.impulse(9); p.armL.impulse(5); p.armR.impulse(5)
+    this.setExpression('googly', 1.1, 2)
+    this.hooks.sound('punch')
+    if (Math.random() < 0.5) this.schedule(0.15, () => this.hooks.sound('yell'))
+    this.popText('punch', at)
+    this.burst(at, 16, 'spark', ['#FFE066', '#FFFFFF', '#FF8FB1'], [300, 750], { gravity: 250 })
+    this.shake(16)
+    this.say('punch', 0.4)
+  }
+
+  // Terlik: köşeden dönerek uçar, kafaya iner, sekip düşer; kafada çizgi film şişliği kalır
+  private slipperThrow(side: 1 | -1): Effect {
+    const start = { x: 400 + side * 560, y: -160 }
+    const off = rand(-30, 30)
+    const top = () => this.char.headToWorld({ x: off, y: -FACE_H * 0.42 })
+    let aim = top()
+    const FLY = 0.42
+    let hit = false
+    let b = { x: 0, y: 0, vx: 0, vy: 0, r: 0 }
+    this.hooks.sound('whoosh')
+    const self: Effect = {
+      t: 0, dur: 1.4,
+      update: (dt) => {
+        self.t += dt
+        if (!hit) aim = top()
+        if (!hit && self.t >= FLY) { hit = true; b = { x: aim.x, y: aim.y, vx: side * 240, vy: -600, r: 0 }; this.slipperImpact(aim, side) }
+        if (hit) { b.vy += 1700 * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.r += side * 11 * dt }
+      },
+      draw: (ctx) => {
+        let x: number, y: number, r: number
+        if (!hit) {
+          const u = Math.min(1, self.t / FLY), ctrl = { x: lerp(start.x, aim.x, 0.5), y: Math.min(start.y, aim.y) - 120 }
+          x = (1 - u) ** 2 * start.x + 2 * (1 - u) * u * ctrl.x + u * u * aim.x
+          y = (1 - u) ** 2 * start.y + 2 * (1 - u) * u * ctrl.y + u * u * aim.y
+          r = -side * u * Math.PI * 4
+        } else { x = b.x; y = b.y; r = b.r }
+        ctx.save(); ctx.globalAlpha = hit ? clamp(1 - (self.t - 1.0) / 0.4, 0, 1) : 1
+        ctx.translate(x, y); ctx.rotate(r)
+        drawSlipper(ctx)
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  private slipperImpact(at: Vec, side: 1 | -1) {
+    const p = this.char.pose
+    p.headSquash.set(0.68); p.headY.impulse(380); p.squash.set(0.84); p.headRot.impulse(side * 3); p.jaw.impulse(7)
+    const local = this.char.toHeadLocal(at)
+    this.addDecal({ kind: 'bump', t: 0, life: 6, blobs: [], x: clamp(local.x, -70, 70), y: -FACE_H * 0.44, rot: rand(-0.3, 0.3) })
+    this.setExpression('shut', 0.5, 2)
+    this.schedule(0.5, () => this.setExpression('shock', 0.8, 1))
+    this.hooks.sound('thwack')
+    if (Math.random() < 0.4) this.schedule(0.18, () => this.hooks.sound('yell'))
+    this.popText('slipper', at)
+    this.burst(at, 10, 'spark', ['#FFE066', '#FFFFFF'], [200, 500], { gravity: 300 })
+    this.shake(10)
+    this.say('slipper', 0.5)
   }
 
   // Sünger sopa: yandan savrulup kafaya iner
@@ -238,8 +415,7 @@ export class AnimationManager {
     const cx = clamp(local.x, -FACE_W * 0.3, FACE_W * 0.3), cy = clamp(local.y, -FACE_H * 0.25, FACE_H * 0.3)
     const blobs = Array.from({ length: 10 }, () => ({ x: cx + rand(-70, 70), y: cy + rand(-60, 50), r: rand(20, 44), drip: 0, speed: 0 }))
     for (let i = 0; i < 4; i++) blobs.push({ x: cx + rand(-60, 60), y: cy + rand(10, 40), r: rand(10, 16), drip: 0, speed: rand(18, 40) })
-    if (this.decals.length >= 4) this.decals.shift()
-    this.decals.push({ kind: 'cream', t: 0, life: 6, blobs })
+    this.addDecal({ kind: 'cream', t: 0, life: 6, blobs })
     this.setExpression('shut', 1.0, 2)
     this.schedule(1.0, () => this.setExpression('shock', 0.9, 1))
     this.hooks.sound('splat')
@@ -308,8 +484,7 @@ export class AnimationManager {
     p.headRot.impulse(-side * 3); p.headSquash.set(0.88); p.jaw.impulse(5)
     const local = this.char.toHeadLocal(at)
     const blobs = Array.from({ length: 9 }, () => ({ x: clamp(local.x + rand(-90, 90), -FACE_W * 0.42, FACE_W * 0.42), y: clamp(local.y + rand(-70, 40), -FACE_H * 0.4, FACE_H * 0.3), r: rand(6, 11), drip: 0, speed: rand(30, 70) }))
-    if (this.decals.length >= 4) this.decals.shift()
-    this.decals.push({ kind: 'wet', t: 0, life: 4.5, blobs })
+    this.addDecal({ kind: 'wet', t: 0, life: 4.5, blobs })
     this.setExpression('shut', 0.7, 2)
     this.popText('water', at)
     this.burst(at, 18, 'drop', ['#5BC0EB', '#9ADCFF', '#E8F7FF'], [250, 700])
@@ -356,21 +531,6 @@ export class AnimationManager {
       },
     }
     return self
-  }
-
-  // Komik surat: ifade değişir, kafa esner
-  private funnyFace() {
-    const faces: Expression[] = ['googly', 'tongue', 'shock', 'happy']
-    const i = pickIndexAvoiding(faces.length, this.lastFace); this.lastFace = i
-    const p = this.char.pose
-    p.headSquash.set(1.28); p.brow.impulse(10)
-    if (faces[i] === 'tongue' || faces[i] === 'shock') p.jaw.impulse(6)
-    this.setExpression(faces[i], 2.4, 1)
-    this.hooks.sound('boing')
-    const h = this.char.headCenter()
-    this.popText('face', { x: h.x, y: h.y - 120 })
-    this.burst({ x: h.x, y: h.y - 40 }, 12, 'spark', ['#B98CFF', '#FFE066', '#FFFFFF'], [200, 450], { gravity: 200 })
-    this.say('face', 0.5)
   }
 
   // Lastik tavuk: yukarıdan kafaya iner, yıldızlar döner
@@ -425,26 +585,6 @@ export class AnimationManager {
     this.burst(at, 10, 'spark', ['#FFE066', '#FFFFFF'], [250, 500], { gravity: 300 })
     this.shake(10)
     this.schedule(0.9, () => this.say('dizzy', 0.8))
-  }
-
-  // Tezahürat: kollar havaya, zıplama, konfeti, kalabalık coşar
-  private cheer() {
-    const p = this.char.pose
-    p.armL.target = 1; p.armR.target = 1; p.armL.impulse(4); p.armR.impulse(4)
-    p.y.impulse(-1100); p.squash.set(0.86)
-    this.schedule(1.6, () => { p.armL.target = 0; p.armR.target = 0 })
-    for (let i = 0; i < 3; i++) this.schedule(0.15 + i * 0.32, () => p.jaw.impulse(10))
-    this.setExpression('happy', 1.7, 1)
-    this.hooks.sound('cheer')
-    this.hooks.excite(1)
-    const h = this.char.headCenter()
-    this.popText('cheer', { x: h.x, y: h.y - 140 })
-    for (let i = 0; i < this.n(70); i++) {
-      if (this.particles.length >= MAX_PARTICLES) this.particles.shift()
-      this.particles.push({ x: rand(40, 760), y: rand(-80, -10), vx: rand(-80, 80), vy: rand(80, 260), life: rand(1.6, 2.6), max: 2.6,
-        size: rand(8, 14), color: pick(CONFETTI), gravity: 260, drag: 0.6, shape: 'confetti', rot: rand(0, 6), vr: rand(-8, 8) })
-    }
-    this.say('cheer', 0.8)
   }
 
   // ── Döngü ─────────────────────────────────────────────────────────────────────
@@ -505,6 +645,21 @@ export class AnimationManager {
         ctx.fillStyle = 'rgba(214,196,170,0.5)'
         for (const b of d.blobs.slice(0, 5)) { ctx.beginPath(); ctx.arc(b.x + b.r * 0.3, b.y + b.r * 0.3, b.r * 0.45, 0, Math.PI * 2); ctx.fill() }
         const cherry = d.blobs[0]; ctx.fillStyle = '#E3263B'; ctx.beginPath(); ctx.arc(cherry.x, cherry.y - cherry.r * 0.6, 10, 0, Math.PI * 2); ctx.fill()
+      } else if (d.kind === 'hand') {
+        ctx.save(); ctx.translate(d.x ?? 0, d.y ?? 0); ctx.rotate(d.rot ?? 0)
+        ctx.globalAlpha = fade * 0.5; ctx.fillStyle = '#E2304A'
+        ctx.beginPath(); ctx.ellipse(0, 6, 30, 34, 0, 0, Math.PI * 2); ctx.fill()
+        for (const [fx, h] of [[-24, 40], [-8, 48], [8, 46], [23, 38]] as const) { ctx.beginPath(); ctx.roundRect(fx - 7, -22 - h, 14, h + 6, 7); ctx.fill() }
+        ctx.save(); ctx.translate(-30, 14); ctx.rotate(-0.9); ctx.beginPath(); ctx.roundRect(-7, -38, 14, 40, 7); ctx.fill(); ctx.restore()
+        ctx.restore()
+      } else if (d.kind === 'bump') {
+        const g = d.t < 0.25 ? easeOutBack(d.t / 0.25) : 1, rad = 30 * g
+        ctx.save(); ctx.translate(d.x ?? 0, d.y ?? 0); ctx.rotate(d.rot ?? 0)
+        ctx.fillStyle = this.char.face.skin; ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 3
+        ctx.beginPath(); ctx.ellipse(0, 0, rad, rad * 1.05, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke()
+        ctx.fillStyle = 'rgba(235,80,95,0.45)'; ctx.beginPath(); ctx.ellipse(0, 0, rad * 0.8, rad * 0.8, 0, Math.PI, 0); ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-rad * 0.35, -rad * 0.6, rad * 0.22, rad * 0.14, -0.5, 0, Math.PI * 2); ctx.fill()
+        ctx.restore()
       } else {
         for (const b of d.blobs) {
           const y = b.y + b.drip
@@ -604,6 +759,23 @@ export class AnimationManager {
   }
 }
 
+/** Tokat eli: avuç bize dönük, parmaklar yukarı (scale(-1, 1) ile aynalanır) */
+function drawCartoonHand(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 6; ctx.lineJoin = 'round'
+  for (const [fx, h] of [[-33, 70], [-11, 84], [11, 80], [33, 66]] as const) { ctx.beginPath(); ctx.roundRect(fx - 11, 4 - h, 22, h + 10, 11); ctx.fill(); ctx.stroke() }
+  ctx.save(); ctx.translate(-46, 40); ctx.rotate(-0.8); ctx.beginPath(); ctx.roundRect(-11, -58, 22, 62, 11); ctx.fill(); ctx.stroke(); ctx.restore()
+  ctx.beginPath(); ctx.roundRect(-46, -10, 92, 96, 34); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#E5323B'; ctx.beginPath(); ctx.roundRect(-50, 80, 100, 30, 10); ctx.fill(); ctx.stroke()
+}
+
+/** Plastik terlik: taban + üst bant */
+function drawSlipper(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#2E6FD8'; ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 5
+  ctx.beginPath(); ctx.ellipse(0, 0, 84, 34, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#5BC0EB'; ctx.beginPath(); ctx.ellipse(-6, 0, 66, 22, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#FFC93C'; ctx.beginPath(); ctx.roundRect(14, -38, 40, 76, 14); ctx.fill(); ctx.stroke()
+}
+
 export function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, rot = 0) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot)
   ctx.fillStyle = color; ctx.strokeStyle = 'rgba(27,31,59,0.55)'; ctx.lineWidth = Math.max(1.5, r * 0.12)
@@ -616,4 +788,4 @@ export function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r:
 }
 
 /** Demo / boş ekran için rastgele bir araç */
-export const randomTool = (): ToolId => pick(['sponge', 'pie', 'water', 'tickle', 'face', 'dizzy', 'cheer'] as const)
+export const randomTool = (): ToolId => pick(['slap', 'punch', 'slipper', 'sponge', 'pie', 'water', 'dizzy', 'tickle'] as const)

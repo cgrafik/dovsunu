@@ -17,17 +17,18 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
         <h2 id="how-title">Nasıl Oynanır?</h2>
         <ol>
           <li>Kendi fotoğrafını (ya da kullanma izni olduğun bir fotoğrafı) yükle; yüz otomatik bulunur, istersen elle ayarla.</li>
-          <li>Formanı seç, adını ve numaranı yaz. Taraftarın tribüne çıksın!</li>
-          <li>Aşağıdan bir araç seç ve karaktere dokun. Ya da aracın düğmesine bas: doğrudan hedefe gider.</li>
-          <li>Hızlı ve art arda vur: <b>kombo</b> yükselir, puan katlanır. Farklı araç kullanmak ek puan getirir.</li>
+          <li>Ortamı seç: ofis, boks ringi, mutfak, sınıf, plaj ya da ev. Kıyafet ve şapka ortama göre değişir.</li>
+          <li>Bir araç seç ve karaktere dokun. Ya da aracın düğmesine bas: doğrudan hedefe gider.</li>
+          <li>Hızlı ve art arda vur: <b>kombo</b> yükselir, puan katlanır. Farklı araç kullanmak ek puan getirir. Her 10 komboda <b>NAKAVT!</b></li>
           <li>Boşluğa dokunursan <b>ıska</b> sayılır, kombo biter. Tur {ROUND_SECONDS} saniye; süre ilk vuruşla başlar.</li>
         </ol>
         <div className="tool-legend">
           {TOOLS.map(t => <div key={t.id}>{t.emoji} {t.label} <kbd>{t.key}</kbd></div>)}
         </div>
         <p className="small-print" style={{ color: '#3a3f66' }}>
-          Klavye: <kbd>1</kbd>–<kbd>7</kbd> aracı kullanır, <kbd>Boşluk</kbd> seçili aracı kullanır.
+          Klavye: <kbd>1</kbd>–<kbd>8</kbd> aracı kullanır, <kbd>Boşluk</kbd> seçili aracı kullanır.
           Fotoğrafın yalnızca tarayıcında işlenir; hiçbir sunucuya gönderilmez ve oyundan çıkınca silinir.
+          Başkasının fotoğrafını kullanacaksan önce iznini al. Her şey çizgi film şakası; kimseyi küçük düşürmek için kullanma.
         </p>
         <button ref={closeBtn} className="btn red" onClick={onClose}>Anladım, oynayalım!</button>
       </div>

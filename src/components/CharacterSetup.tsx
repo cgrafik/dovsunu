@@ -1,6 +1,6 @@
 import type { SoundManager } from '../game/SoundManager'
 import type { CharacterLook, FaceAsset } from '../game/types'
-import { JERSEYS } from '../game/jerseys'
+import { OUTFIT_COLORS, SCENES } from '../game/scenes'
 import { GameCanvas } from './GameCanvas'
 import { SoundControl } from './SoundControl'
 
@@ -14,52 +14,60 @@ interface Props {
   onNewPhoto: () => void
 }
 
-export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPlay, onNewPhoto }: Props) {
-  const j = look.jersey
-  const setJersey = (p: Partial<CharacterLook['jersey']>) => onLook({ ...look, jersey: { ...j, ...p } })
+// Seçim kartlarının renkleri (ortamın arka planını andırır)
+const CARD_COLORS: Record<CharacterLook['scene'], [string, string]> = {
+  office: ['#CBD8E4', '#B98A57'], ring: ['#8C83C9', '#E6DFCF'], kitchen: ['#F4F0E8', '#7FB59E'],
+  school: ['#7FB08F', '#F2E6CC'], beach: ['#8FD3F5', '#F3D7A0'], home: ['#EBDCC6', '#C9707C'],
+}
 
+export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPlay, onNewPhoto }: Props) {
   return (
     <main className="screen">
       <div className="topbar">
         <button className="btn small ghost" onClick={onNewPhoto}>← Fotoğrafı değiştir</button>
-        <h2>Taraftarını Hazırla</h2>
+        <h2>Ortamını Seç</h2>
         <SoundControl sound={sound} />
       </div>
       <div className="setup-layout">
         <div className="preview-stage">
           <GameCanvas face={face} look={look} mode="preview" sound={sound} reducedMotion={reducedMotion}
-            label="Karakterinin önizlemesi — dokununca şaka yapar" />
+            label="Karakterinin seçilen ortamdaki önizlemesi — dokununca deneme vuruşu yapılır" />
         </div>
         <div style={{ display: 'grid', gap: 14 }}>
           <div className="panel">
-            <h3>Görünüm</h3>
-            <label className="toggle">
+            <h3>Ortam</h3>
+            <div className="scenes" role="group" aria-label="Ortamlar">
+              {SCENES.map(s => (
+                <button key={s.id} className="scene-card" aria-pressed={look.scene === s.id}
+                  style={{ ['--a' as string]: CARD_COLORS[s.id][0], ['--b' as string]: CARD_COLORS[s.id][1] }}
+                  onClick={() => onLook({ ...look, scene: s.id, color: s.color })}>
+                  <span className="emoji" aria-hidden>{s.emoji}</span>
+                  <span className="name">{s.label}</span>
+                  <span className="blurb">{s.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="panel">
+            <h3>Kıyafet rengi</h3>
+            <div className="swatches" role="group" aria-label="Kıyafet renkleri">
+              {OUTFIT_COLORS.map(c => (
+                <button key={c.id} className="swatch" style={{ ['--a' as string]: c.hex, ['--b' as string]: c.hex }}
+                  aria-label={c.label} title={c.label} aria-pressed={look.color === c.hex}
+                  onClick={() => onLook({ ...look, color: c.hex })} />
+              ))}
+            </div>
+            <label className="field" style={{ marginTop: 14 }}>Tabeladaki ad <span className="muted" style={{ fontWeight: 600 }}>(isteğe bağlı)</span>
+              <input type="text" value={look.name} maxLength={12} placeholder="ADI"
+                onChange={e => onLook({ ...look, name: e.target.value.replace(/[^\p{L}\p{N} .-]/gu, '').toLocaleUpperCase('tr') })} />
+            </label>
+            <label className="toggle" style={{ marginTop: 10 }}>
               <span>Çizgi film filtresi <span className="muted" style={{ fontWeight: 600 }}>(yüzü karikatürleştirir)</span></span>
               <input type="checkbox" checked={look.cartoon} onChange={e => onLook({ ...look, cartoon: e.target.checked })} />
             </label>
           </div>
-          <div className="panel">
-            <h3>Forma</h3>
-            <div className="swatches" role="group" aria-label="Forma renkleri">
-              {JERSEYS.map(c => (
-                <button key={c.id} className="swatch" style={{ ['--a' as string]: c.primary, ['--b' as string]: c.secondary }}
-                  aria-label={c.label} title={c.label} aria-pressed={j.primary === c.primary && j.secondary === c.secondary}
-                  onClick={() => setJersey({ primary: c.primary, secondary: c.secondary })} />
-              ))}
-            </div>
-            <div className="two-col" style={{ marginTop: 14 }}>
-              <label className="field">Formadaki isim
-                <input type="text" value={j.name} maxLength={10} placeholder="ADIN"
-                  onChange={e => setJersey({ name: e.target.value.replace(/[^\p{L}\p{N} .-]/gu, '').toLocaleUpperCase('tr') })} />
-              </label>
-              <label className="field">Numara
-                <input type="text" inputMode="numeric" value={j.number} maxLength={2} placeholder="12"
-                  onChange={e => setJersey({ number: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
-              </label>
-            </div>
-          </div>
-          <button className="btn big red" onClick={onPlay}>Tribüne Çık! ⚽</button>
-          <p className="small-print" style={{ margin: 0, textAlign: 'center' }}>İpucu: önizlemede karakterine dokun, ısınma hareketi yapsın.</p>
+          <button className="btn big red" onClick={onPlay}>Başla! 👊</button>
+          <p className="small-print" style={{ margin: 0, textAlign: 'center' }}>İpucu: önizlemede karaktere dokun, deneme vuruşu yap.</p>
         </div>
       </div>
     </main>

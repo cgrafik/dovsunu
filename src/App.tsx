@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CharacterSetup } from './components/CharacterSetup'
-import { JERSEYS } from './game/jerseys'
 import { GameScreen } from './components/GameScreen'
 import { HowToPlay } from './components/HowToPlay'
 import { PhotoUpload } from './components/PhotoUpload'
@@ -9,15 +8,13 @@ import { StartScreen } from './components/StartScreen'
 import { disposeFaceAsset } from './face/faceAsset'
 import { ScoreManager, type ScoreSnapshot } from './game/ScoreManager'
 import { SoundManager } from './game/SoundManager'
+import { SCENES } from './game/scenes'
 import type { CharacterLook, FaceAsset } from './game/types'
 import { useReducedMotion } from './hooks/useReducedMotion'
 
 type Screen = 'start' | 'upload' | 'setup' | 'game' | 'results'
 
-const DEFAULT_LOOK: CharacterLook = {
-  cartoon: false,
-  jersey: { primary: JERSEYS[0].primary, secondary: JERSEYS[0].secondary, name: '', number: '12' },
-}
+const DEFAULT_LOOK: CharacterLook = { cartoon: false, scene: SCENES[0].id, color: SCENES[0].color, name: '' }
 
 export default function App() {
   const sound = useMemo(() => new SoundManager(), [])

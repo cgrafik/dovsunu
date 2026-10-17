@@ -51,3 +51,23 @@ export function pickIndexAvoiding(n: number, last: number): number {
   if (i >= last) i++
   return i
 }
+
+/** Rengi beyaza (amt > 0) ya da siyaha (amt < 0) doğru karıştır: #rrggbb → #rrggbb */
+export function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const to = amt > 0 ? 255 : 0, k = Math.abs(amt)
+  const ch = (s: number) => Math.round(lerp((n >> s) & 255, to, k)).toString(16).padStart(2, "0")
+  return "#" + ch(16) + ch(8) + ch(0)
+}
+
+/** Tohumlu rastgele (sahne süsleri her karede aynı yerde dursun) */
+export function seeded(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}

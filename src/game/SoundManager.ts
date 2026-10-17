@@ -5,13 +5,13 @@
 import { pickIndexAvoiding, rand } from './math'
 
 export type SoundId =
-  | 'click' | 'bonk' | 'splat' | 'splash' | 'giggle' | 'yell' | 'cheer' | 'fail'
-  | 'score' | 'combo' | 'milestone' | 'dizzy' | 'boing' | 'whoosh'
+  | 'click' | 'slap' | 'punch' | 'thwack' | 'bonk' | 'splat' | 'splash' | 'giggle' | 'yell' | 'cheer' | 'fail'
+  | 'score' | 'combo' | 'milestone' | 'dizzy' | 'boing' | 'whoosh' | 'bell'
 
 type Voice = (s: SoundManager, t: number, k: number) => number   // dönüş: sesin süresi (sn)
 
 const MAX_VOICES = 24
-const PREF_KEY = 'tribun_ses'
+const PREF_KEY = 'saplak_ses'
 
 export interface SoundSettings { muted: boolean; volume: number }
 
@@ -154,6 +154,39 @@ const VOICES: Record<SoundId, Voice[]> = {
     (s, t) => { s.tone('sine', 900, 700, t, 0.05, 0.25); s.tone('triangle', 1600, 1500, t, 0.03, 0.08); return 0.06 },
     (s, t) => { s.tone('sine', 1100, 850, t, 0.05, 0.22); return 0.05 },
   ],
+  // Tokat: keskin şaklama + kısa tok vuruş
+  slap: [
+    (s, t, k) => {
+      s.noiseBurst(t, 0.09, 0.85 * k, 'highpass', 2600, 1300, 0.8); s.noiseBurst(t, 0.05, 0.5, 'bandpass', 1300, 800, 1.5)
+      s.tone('sine', 260, 120, t, 0.08, 0.4 * k); return 0.15
+    },
+    (s, t, k) => {
+      s.noiseBurst(t, 0.07, 0.9 * k, 'highpass', 3200, 1800, 0.7); s.noiseBurst(t + 0.01, 0.06, 0.4, 'bandpass', 900, 600, 2)
+      s.tone('triangle', 1800, 900, t + 0.02, 0.05, 0.08); return 0.12
+    },
+  ],
+  // Yumruk: derin gümleme + çatırtı
+  punch: [
+    (s, t, k) => {
+      s.tone('sine', 120, 40, t, 0.26, 0.95 * k); s.noiseBurst(t, 0.15, 0.6 * k, 'lowpass', 700, 150)
+      s.noiseBurst(t, 0.05, 0.3, 'bandpass', 2200, 900, 1.2); return 0.32
+    },
+    (s, t, k) => {
+      s.tone('sine', 140, 45, t, 0.24, 0.9 * k); s.tone('triangle', 320, 90, t, 0.12, 0.25 * k)
+      s.noiseBurst(t, 0.1, 0.5, 'lowpass', 1200, 200); return 0.3
+    },
+  ],
+  // Terlik: lastik tabanın düz "şap" sesi
+  thwack: [
+    (s, t, k) => {
+      s.noiseBurst(t, 0.07, 0.75 * k, 'bandpass', 1800, 700, 3); s.tone('square', 420, 180, t, 0.06, 0.12)
+      s.tone('sine', 180, 70, t, 0.12, 0.45 * k); return 0.16
+    },
+    (s, t, k) => {
+      s.noiseBurst(t, 0.06, 0.8 * k, 'bandpass', 2200, 900, 2.5); s.tone('sine', 210, 80, t, 0.1, 0.4 * k)
+      s.tone('sine', 900, 1300, t + 0.08, 0.08, 0.06); return 0.2
+    },
+  ],
   // Sünger sopa: tok darbe + yay "boing"
   bonk: [
     (s, t, k) => {
@@ -219,7 +252,7 @@ const VOICES: Record<SoundId, Voice[]> = {
     (s, t) => { s.tone('sawtooth', 260, 170, t, 0.6, 1, { attack: 0.04, vibrato: [6, 14], dest: s.formant(t, 0.62, 420, 820, 0.45) }); return 0.65 },
     (s, t) => { s.tone('sawtooth', 520, 300, t, 0.45, 1, { attack: 0.02, vibrato: [9, 22], dest: s.formant(t, 0.5, 700, 1300, 0.38) }); return 0.5 },
   ],
-  // Tezahürat: kalabalık uğultusu + "o-le!" koro + alkış
+  // Ring kalabalığı: uğultu + "o-le!" koro + alkış (nakavtta)
   cheer: [
     (s, t) => {
       for (const f of [500, 900, 1500]) s.noiseBurst(t, 1.4, 0.16, 'bandpass', f, f * 1.15, 0.8)
@@ -272,4 +305,14 @@ const VOICES: Record<SoundId, Voice[]> = {
     (s, t) => { s.tone('square', 260, 290, t, 0.35, 0.08, { vibrato: [11, 30] }); s.tone('sine', 520, 760, t, 0.3, 0.12); return 0.4 },
   ],
   whoosh: [(s, t) => { s.noiseBurst(t, 0.25, 0.25, 'bandpass', 380, 2600, 1.2); return 0.3 }],
+  // Gong / ring zili: üç kez "ding"
+  bell: [
+    (s, t) => {
+      for (let i = 0; i < 3; i++) {
+        const st = t + i * 0.22
+        s.tone('sine', 1320, 1316, st, 0.9, 0.22); s.tone('sine', 3640, 3630, st, 0.5, 0.06); s.tone('sine', 2200, 2195, st, 0.6, 0.05)
+      }
+      return 1.4
+    },
+  ],
 }

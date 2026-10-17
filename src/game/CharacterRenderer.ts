@@ -1,7 +1,8 @@
-// Karakter: taraftar gövdesi (forma, atkı, kollar, köpük el) + kullanıcının yüzü + ifade katmanları.
+// Karakter: ortama göre kıyafetli gövde (takım elbise, atlet, aşçı önlüğü…) + kullanıcının yüzü + ifadeler + şapka.
 // Poz yaylarla tutulur: animasyonlar itki verir, yaylar karakteri başlangıç pozuna geri getirir.
 // Kafa dönüşümü (headMatrix) her karede hesaplanır; yüze yapışan efektler (pasta, su) bu dönüşümle çizilir → kaymaz.
-import { Spring, clamp } from './math'
+import { Spring, clamp, seeded, shade } from './math'
+import { sceneById, type Hat, type Outfit, type SceneDef } from './scenes'
 import type { CharacterLook, Expression, FaceAsset, Vec } from './types'
 
 /** Kafa yerel ölçüleri: yüz görseli bu dikdörtgene çizilir (oran 4:5) */
@@ -58,6 +59,8 @@ export class CharacterRenderer {
   /** Komik gözlerin göz bebeği fiziği */
   private googly = [{ x: 0, y: 0, vx: 0, vy: 0 }, { x: 0, y: 0, vx: 0, vy: 0 }]
   private lastHead: Vec = { x: 0, y: 0 }
+  /** Pervaneli şapkanın dönüş açısı (kafa sarsıldıkça hızlanır) */
+  private spin = 0
   blush = 0
   /** Dünya → kafa yerel dönüşümü (efektler bunu kullanır) */
   headMatrix = new DOMMatrix()
@@ -80,6 +83,7 @@ export class CharacterRenderer {
     if (this.blinkAt <= 0) { this.blinkT = 0.13; this.blinkAt = 2.5 + Math.random() * 2.5 }
     if (this.blinkT > 0) this.blinkT -= dt
     this.computeMatrices()
+    this.spin += dt * (5 + Math.min(40, Math.abs(this.pose.headRot.velocity) * 2 + this.pose.wobble * 25))
     // komik göz bebekleri kafanın hareketine gecikmeli tepki verir
     const hx = this.headMatrix.e, hy = this.headMatrix.f
     const ax = (hx - this.lastHead.x) / Math.max(dt, 1e-3), ay = (hy - this.lastHead.y) / Math.max(dt, 1e-3)
@@ -126,27 +130,25 @@ export class CharacterRenderer {
   }
 
   // ── Çizim ────────────────────────────────────────────────────────────────────
+  private get scene(): SceneDef { return sceneById(this.look.scene) }
+
   draw(ctx: CanvasRenderingContext2D, screen: DOMMatrix) {
+    const sc = this.scene
     ctx.save()
     ctx.setTransform(screen.multiply(this.bodyMatrix))
-    this.drawArm(ctx, -1, this.pose.armL.value, false)
-    this.drawTorso(ctx)
-    this.drawArm(ctx, 1, this.pose.armR.value, true)
+    this.drawArm(ctx, -1, this.pose.armL.value, sc)
+    this.drawTorso(ctx, sc.outfit)
+    this.drawArm(ctx, 1, this.pose.armR.value, sc)
     ctx.restore()
 
     ctx.save()
     ctx.setTransform(screen.multiply(this.headMatrix))
-    this.drawHead(ctx)
+    this.drawHead(ctx, sc.hat)
     ctx.restore()
   }
 
-  private drawTorso(ctx: CanvasRenderingContext2D) {
-    const { primary, secondary, name, number } = this.look.jersey
-    // boyun
-    ctx.fillStyle = this.face.skin
-    ctx.beginPath(); ctx.roundRect(-40, NECK_TOP - 30, 80, 70, 24); ctx.fill()
-    // forma gövdesi
-    ctx.fillStyle = primary
+  /** Gövde silueti: omuzlardan bele */
+  private shirtPath(ctx: CanvasRenderingContext2D) {
     ctx.beginPath()
     ctx.moveTo(-150, NECK_TOP + 22)
     ctx.quadraticCurveTo(-178, NECK_TOP + 40, -170, NECK_TOP + 120)
@@ -155,45 +157,119 @@ export class CharacterRenderer {
     ctx.lineTo(170, NECK_TOP + 120)
     ctx.quadraticCurveTo(178, NECK_TOP + 40, 150, NECK_TOP + 22)
     ctx.quadraticCurveTo(0, NECK_TOP - 6, -150, NECK_TOP + 22)
-    ctx.fill()
-    // yan şeritler
-    ctx.fillStyle = secondary
-    ctx.fillRect(-150, NECK_TOP + 120, 22, 300); ctx.fillRect(128, NECK_TOP + 120, 22, 300)
-    // yaka
-    ctx.strokeStyle = secondary; ctx.lineWidth = 12
-    ctx.beginPath(); ctx.moveTo(-46, NECK_TOP + 14); ctx.quadraticCurveTo(0, NECK_TOP + 60, 46, NECK_TOP + 14); ctx.stroke()
-    // isim + numara
-    ctx.fillStyle = secondary
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    if (name) { ctx.font = '700 30px "Bungee", system-ui, sans-serif'; ctx.fillText(name.toLocaleUpperCase('tr').slice(0, 10), 0, NECK_TOP + 108) }
-    ctx.font = '400 118px "Bungee", system-ui, sans-serif'
-    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,0.18)'
-    ctx.strokeText(number || '12', 0, NECK_TOP + 200)
-    ctx.fillText(number || '12', 0, NECK_TOP + 200)
-    // atkı (çizgili, iki ucu sarkar)
-    const stripes = (x: number, y: number, w: number, h: number) => {
-      for (let i = 0; i < Math.ceil(h / 18); i++) {
-        ctx.fillStyle = i % 2 ? secondary : primary
-        ctx.fillRect(x, y + i * 18, w, Math.min(18, h - i * 18))
+  }
+
+  private drawTorso(ctx: CanvasRenderingContext2D, outfit: Outfit) {
+    const c = this.look.color, skin = this.face.skin, N = NECK_TOP
+    const fillShirt = (color: string) => { ctx.fillStyle = color; this.shirtPath(ctx); ctx.fill() }
+    const clipped = (fn: () => void) => { ctx.save(); this.shirtPath(ctx); ctx.clip(); fn(); ctx.restore() }
+    const poly = (pts: readonly (readonly [number, number])[]) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill() }
+    // boyun
+    ctx.fillStyle = skin
+    ctx.beginPath(); ctx.roundRect(-40, N - 30, 80, 70, 24); ctx.fill()
+
+    switch (outfit) {
+      case 'suit': {
+        fillShirt(c)
+        ctx.fillStyle = '#F7F7F2'; poly([[-52, N + 12], [52, N + 12], [0, N + 212]])
+        ctx.fillStyle = c === '#D7263D' ? '#1B2A6B' : '#D7263D'
+        poly([[-16, N + 20], [16, N + 20], [10, N + 46], [-10, N + 46]])
+        poly([[-10, N + 46], [10, N + 46], [24, N + 178], [0, N + 206], [-24, N + 178]])
+        ctx.fillStyle = shade(c, -0.22)
+        for (const s of [-1, 1]) poly([[s * 52, N + 12], [s * 108, N + 40], [s * 80, N + 92], [s * 100, N + 106], [s * 6, N + 212]])
+        ctx.fillStyle = shade(c, -0.4)
+        for (const y of [N + 244, N + 294]) { ctx.beginPath(); ctx.arc(0, y, 7, 0, Math.PI * 2); ctx.fill() }
+        ctx.fillStyle = '#FFFFFF'; poly([[-132, N + 130], [-100, N + 130], [-108, N + 112], [-122, N + 118]])
+        break
+      }
+      case 'tank': {
+        fillShirt(skin)
+        clipped(() => {
+          ctx.fillStyle = c
+          ctx.beginPath()
+          ctx.moveTo(-74, N + 2); ctx.lineTo(-44, N + 2)
+          ctx.quadraticCurveTo(0, N + 96, 44, N + 2); ctx.lineTo(74, N + 2)
+          ctx.quadraticCurveTo(92, N + 124, 160, N + 164); ctx.lineTo(170, 120); ctx.lineTo(-170, 120); ctx.lineTo(-160, N + 164)
+          ctx.quadraticCurveTo(-92, N + 124, -74, N + 2)
+          ctx.fill()
+        })
+        if (this.look.name) {
+          ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+          ctx.font = '400 30px "Bungee", system-ui, sans-serif'
+          ctx.fillText(this.look.name.toLocaleUpperCase('tr').slice(0, 10), 0, N + 170, 230)
+        }
+        break
+      }
+      case 'chef': {
+        fillShirt('#FAFAF7')
+        clipped(() => {
+          ctx.fillStyle = '#C9CED6'
+          for (let row = 0; row < 3; row++) for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 40, N + 64 + row * 44, 7, 0, Math.PI * 2); ctx.fill() }
+          ctx.strokeStyle = c; ctx.lineWidth = 12; ctx.lineCap = 'round'
+          for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 94, N + 140); ctx.lineTo(s * 36, N + 18); ctx.stroke() }
+          ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(-106, N + 134, 212, 420, 20); ctx.fill()
+          ctx.fillStyle = shade(c, -0.22); ctx.beginPath(); ctx.roundRect(-52, N + 214, 104, 58, 10); ctx.fill()
+        })
+        ctx.fillStyle = '#FAFAF7'; ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 3
+        ctx.beginPath(); ctx.roundRect(-56, N - 8, 112, 32, 12); ctx.fill(); ctx.stroke()
+        break
+      }
+      case 'sweater': {
+        fillShirt(c)
+        clipped(() => {
+          for (const [y, col, lw] of [[N + 150, shade(c, 0.5), 12], [N + 178, shade(c, -0.25), 8]] as const) {
+            ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'miter'
+            ctx.beginPath(); for (let x = -210, k = 0; x <= 210; x += 30, k++) { const yy = y + (k % 2 ? 14 : -14); if (k === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy) } ctx.stroke()
+          }
+        })
+        ctx.fillStyle = shade(c, -0.25); poly([[-56, N + 10], [56, N + 10], [0, N + 92]])
+        ctx.fillStyle = '#FFFFFF'; poly([[-48, N + 12], [48, N + 12], [0, N + 80]])
+        for (const s of [-1, 1]) poly([[s * 4, N + 14], [s * 60, N + 4], [s * 40, N + 56]])
+        break
+      }
+      case 'hawaii': {
+        fillShirt(c)
+        clipped(() => {
+          const r = seeded(3)
+          for (let i = 0; i < 22; i++) {
+            const x = -175 + r() * 350, y = N + r() * 430, rad = 13 + r() * 8, col = r() < 0.5 ? '#FFF4E0' : '#FFD84D'
+            ctx.fillStyle = '#2E9E5B'; ctx.beginPath(); ctx.ellipse(x + rad, y + rad * 0.6, rad * 0.9, rad * 0.4, 0.5, 0, Math.PI * 2); ctx.fill()
+            ctx.fillStyle = col
+            for (let k = 0; k < 5; k++) { const a = (k / 5) * Math.PI * 2; ctx.beginPath(); ctx.arc(x + Math.cos(a) * rad * 0.6, y + Math.sin(a) * rad * 0.6, rad * 0.5, 0, Math.PI * 2); ctx.fill() }
+            ctx.fillStyle = '#F28C38'; ctx.beginPath(); ctx.arc(x, y, rad * 0.3, 0, Math.PI * 2); ctx.fill()
+          }
+        })
+        ctx.fillStyle = skin; poly([[-42, N + 8], [42, N + 8], [0, N + 112]])
+        ctx.fillStyle = shade(c, 0.25)
+        for (const s of [-1, 1]) poly([[s * 40, N + 6], [s * 90, N + 30], [s * 18, N + 98]])
+        ctx.strokeStyle = shade(c, -0.25); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, N + 112); ctx.lineTo(0, 100); ctx.stroke()
+        break
+      }
+      case 'pajama': {
+        fillShirt(c)
+        clipped(() => { ctx.fillStyle = shade(c, 0.35); for (let x = -206; x < 210; x += 46) ctx.fillRect(x, N - 20, 16, 540) })
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 8; ctx.lineJoin = 'round'
+        ctx.beginPath(); ctx.moveTo(-54, N + 12); ctx.lineTo(0, N + 96); ctx.lineTo(54, N + 12); ctx.stroke()
+        ctx.fillStyle = shade(c, -0.15); ctx.beginPath(); ctx.roundRect(-126, N + 104, 58, 52, 8); ctx.fill()
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(-126, N + 104, 58, 6)
+        for (let y = N + 126; y < 60; y += 52) { ctx.beginPath(); ctx.arc(0, y, 7, 0, Math.PI * 2); ctx.fill() }
+        break
       }
     }
-    ctx.save()
-    ctx.beginPath(); ctx.roundRect(-112, NECK_TOP - 6, 224, 44, 20); ctx.clip()
-    for (let i = 0; i < 14; i++) { ctx.fillStyle = i % 2 ? secondary : primary; ctx.fillRect(-112 + i * 16, NECK_TOP - 6, 16, 44) }
-    ctx.restore()
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 3
-    ctx.beginPath(); ctx.roundRect(-112, NECK_TOP - 6, 224, 44, 20); ctx.stroke()
-    const sway = Math.sin(this.t * 2.6) * 6 + this.pose.lean.value * -40
-    // atkının sarkan ucu yanda (formadaki ismin üstüne binmesin)
-    ctx.save(); ctx.translate(-112, NECK_TOP + 30); ctx.rotate((sway * Math.PI) / 180 * 0.4)
-    ctx.beginPath(); ctx.roundRect(-24, 0, 48, 150, 8); ctx.save(); ctx.clip(); stripes(-24, 0, 48, 150); ctx.restore()
-    ctx.fillStyle = secondary; for (let i = 0; i < 5; i++) ctx.fillRect(-22 + i * 10, 150, 5, 18)
-    ctx.restore()
   }
 
   /** Kol: omuzdan sallanan iki parça; side −1 sol, +1 sağ. raise 0 (aşağı) … 1 (havada) */
-  private drawArm(ctx: CanvasRenderingContext2D, side: -1 | 1, raise: number, foamHand: boolean) {
-    const { primary, secondary } = this.look.jersey
+  private drawArm(ctx: CanvasRenderingContext2D, side: -1 | 1, raise: number, sc: SceneDef) {
+    const c = this.look.color, skin = this.face.skin
+    const sleeve: Record<Outfit, { upper: string; fore: string | null; cuff: string | null }> = {
+      suit: { upper: c, fore: c, cuff: '#F7F7F2' },
+      tank: { upper: skin, fore: null, cuff: null },
+      chef: { upper: '#FAFAF7', fore: '#FAFAF7', cuff: null },
+      sweater: { upper: c, fore: c, cuff: shade(c, -0.25) },
+      hawaii: { upper: c, fore: null, cuff: null },
+      pajama: { upper: c, fore: c, cuff: '#FFFFFF' },
+    }
+    const st = sleeve[sc.outfit]
     const sh = { x: side * 148, y: NECK_TOP + 50 }
     const swing = Math.sin(this.t * 2.2 + side) * 0.05
     const r = clamp(raise, -0.3, 1.25)
@@ -202,33 +278,29 @@ export class CharacterRenderer {
     const up = 150, fore = 135
     const elbow = { x: sh.x + Math.sin(a1) * up, y: sh.y + Math.cos(a1) * up }
     const hand = { x: elbow.x + Math.sin(a2) * fore, y: elbow.y + Math.cos(a2) * fore }
+    const seg = (from: Vec, to: Vec, color: string, w: number) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke() }
     ctx.lineCap = 'round'
-    ctx.strokeStyle = primary; ctx.lineWidth = 62
-    ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(elbow.x, elbow.y); ctx.stroke()
-    ctx.strokeStyle = secondary; ctx.lineWidth = 62
-    ctx.beginPath(); ctx.moveTo(elbow.x - (elbow.x - sh.x) * 0.18, elbow.y - (elbow.y - sh.y) * 0.18); ctx.lineTo(elbow.x, elbow.y); ctx.stroke()
-    ctx.strokeStyle = this.face.skin; ctx.lineWidth = 46
-    ctx.beginPath(); ctx.moveTo(elbow.x, elbow.y); ctx.lineTo(hand.x, hand.y); ctx.stroke()
-    if (foamHand) {
-      // köpük el: işaret parmağı havada, takım rengi
-      // yerel +y (parmak) kolun yönüne (sin a2, cos a2) döner
+    seg(sh, elbow, st.upper, 62)
+    seg(elbow, hand, st.fore ?? skin, st.fore ? 54 : 46)
+    if (st.cuff) seg({ x: elbow.x + (hand.x - elbow.x) * 0.82, y: elbow.y + (hand.y - elbow.y) * 0.82 }, { x: elbow.x + (hand.x - elbow.x) * 0.9, y: elbow.y + (hand.y - elbow.y) * 0.9 }, st.cuff, 56)
+    if (sc.gloves) {
+      // boks eldiveni: yerel +y kolun yönüne döner
       ctx.save(); ctx.translate(hand.x, hand.y); ctx.rotate(-a2)
-      ctx.fillStyle = secondary; ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 4
-      ctx.beginPath(); ctx.roundRect(-46, -10, 92, 92, 28); ctx.fill(); ctx.stroke()
-      ctx.beginPath(); ctx.roundRect(-18, 60, 36, 120, 18); ctx.fill(); ctx.stroke()
-      ctx.fillStyle = primary; ctx.font = '400 34px "Bungee", system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText('1', 0, 36)
+      ctx.fillStyle = '#F4F1E8'; ctx.beginPath(); ctx.roundRect(-32, -20, 64, 34, 10); ctx.fill()
+      ctx.fillStyle = '#D7263D'; ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 4
+      ctx.beginPath(); ctx.ellipse(0, 46, 50, 58, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+      ctx.beginPath(); ctx.ellipse(-side * 40, 34, 18, 28, side * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(side * 16, 40, 12, 26, 0, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
     } else {
-      ctx.fillStyle = this.face.skin
+      ctx.fillStyle = skin
       ctx.beginPath(); ctx.arc(hand.x, hand.y, 34, 0, Math.PI * 2); ctx.fill()
     }
   }
 
-  private drawHead(ctx: CanvasRenderingContext2D) {
+  private drawHead(ctx: CanvasRenderingContext2D, hat: Hat) {
     const face = this.look.cartoon ? this.face.cartoon : this.face.natural
     const f = this.face.features
-    const { primary, secondary } = this.look.jersey
     // kulaklar + kafa tabanı (yüzün yumuşak kenarı arkasında ten rengi)
     ctx.fillStyle = this.face.skin
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * FACE_W * 0.47, 8, 26, 40, 0, 0, Math.PI * 2); ctx.fill() }
@@ -260,33 +332,74 @@ export class CharacterRenderer {
       }
     }
     this.drawExpression(ctx)
-    this.drawBeanie(ctx, primary, secondary)
+    this.drawHat(ctx, hat)
   }
 
-  private drawBeanie(ctx: CanvasRenderingContext2D, primary: string, secondary: string) {
-    const top = -FACE_H * 0.5
+  private drawHat(ctx: CanvasRenderingContext2D, hat: Hat) {
+    const top = -FACE_H * 0.5, c = this.look.color
+    const sway = Math.sin(this.t * 3) * 0.08 - this.pose.headRot.value * 0.9
     ctx.save()
-    ctx.fillStyle = primary
-    ctx.beginPath()
-    ctx.moveTo(-FACE_W * 0.5, top + 70)
-    ctx.bezierCurveTo(-FACE_W * 0.52, top - 70, FACE_W * 0.52, top - 70, FACE_W * 0.5, top + 70)
-    ctx.closePath(); ctx.fill()
-    // şeritler
-    ctx.save(); ctx.clip()
-    ctx.fillStyle = secondary
-    for (let i = 0; i < 3; i++) ctx.fillRect(-FACE_W, top - 30 + i * 30, FACE_W * 2, 12)
-    ctx.restore()
-    // kıvrık kenar
-    ctx.fillStyle = secondary
-    ctx.beginPath(); ctx.roundRect(-FACE_W * 0.53, top + 46, FACE_W * 1.06, 40, 18); ctx.fill()
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 3
-    for (let x = -FACE_W * 0.48; x < FACE_W * 0.5; x += 14) { ctx.beginPath(); ctx.moveTo(x, top + 52); ctx.lineTo(x, top + 80); ctx.stroke() }
-    // ponpon
-    const bob = Math.sin(this.t * 3) * 4 - this.pose.headRot.value * 30
-    ctx.fillStyle = secondary
-    ctx.beginPath(); ctx.arc(bob, top - 34, 30, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'
-    ctx.beginPath(); ctx.arc(bob - 9, top - 44, 10, 0, Math.PI * 2); ctx.fill()
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    switch (hat) {
+      case 'headband': {
+        const y = top + 46
+        ctx.fillStyle = '#D7263D'
+        ctx.beginPath(); ctx.roundRect(-FACE_W * 0.53, y - 16, FACE_W * 1.06, 32, 14); ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(-FACE_W * 0.53, y - 3, FACE_W * 1.06, 6)
+        ctx.fillStyle = '#D7263D'
+        ctx.translate(FACE_W * 0.5, y); ctx.rotate(0.5 + sway)
+        ctx.beginPath(); ctx.roundRect(0, -8, 74, 16, 8); ctx.fill()
+        ctx.rotate(0.4); ctx.beginPath(); ctx.roundRect(0, -7, 62, 14, 7); ctx.fill()
+        break
+      }
+      case 'toque': {
+        ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 4
+        ctx.translate(0, top + 40); ctx.rotate(sway * 0.3)
+        for (const [x, y, rad] of [[-62, -60, 58], [62, -60, 58], [0, -96, 72]] as const) { ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); ctx.stroke() }
+        ctx.beginPath(); ctx.roundRect(-FACE_W * 0.44, -24, FACE_W * 0.88, 60, 10); ctx.fill(); ctx.stroke()
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 3
+        for (let x = -80; x <= 80; x += 32) { ctx.beginPath(); ctx.moveTo(x, -18); ctx.lineTo(x, 30); ctx.stroke() }
+        break
+      }
+      case 'propeller': {
+        const y = top + 62
+        ctx.save(); ctx.beginPath(); ctx.ellipse(0, y, FACE_W * 0.5, 100, 0, Math.PI, 0); ctx.closePath(); ctx.clip()
+        for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#FFD84D' : c; ctx.beginPath(); ctx.moveTo(0, y + 20); ctx.arc(0, y + 20, 200, Math.PI + (i / 4) * Math.PI, Math.PI + ((i + 1) / 4) * Math.PI); ctx.fill() }
+        ctx.restore()
+        ctx.fillStyle = shade(c, -0.2); ctx.beginPath(); ctx.ellipse(0, y, FACE_W * 0.52, 14, 0, 0, Math.PI * 2); ctx.fill()
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, y - 100); ctx.lineTo(0, y - 124); ctx.stroke()
+        for (const [k, col] of [[0, '#E5323B'], [Math.PI, '#2E6FD8']] as const) {
+          const a = this.spin + k, w = Math.cos(a)
+          ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(w * 38, y - 126, Math.abs(w) * 38 + 3, 10, 0, 0, Math.PI * 2); ctx.fill()
+        }
+        ctx.fillStyle = '#FFD84D'; ctx.beginPath(); ctx.arc(0, y - 126, 8, 0, Math.PI * 2); ctx.fill()
+        break
+      }
+      case 'sunglasses': {
+        ctx.translate(0, top + 52); ctx.rotate(-0.05)
+        ctx.fillStyle = '#1B1F3B'
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.roundRect(s * 54 - 44, -22, 88, 46, 18); ctx.fill() }
+        ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(-12, -6); ctx.quadraticCurveTo(0, -16, 12, -6); ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * 54 - 18, -8, 10, 5, -0.4, 0, Math.PI * 2); ctx.fill() }
+        break
+      }
+      case 'nightcap': {
+        const cap = shade(c, 0.15), tip = { x: FACE_W * 0.78 + Math.sin(this.t * 2.4) * 10 - this.pose.headRot.value * 60, y: top + 56 }
+        ctx.fillStyle = cap
+        ctx.beginPath(); ctx.moveTo(-FACE_W * 0.5, top + 64)
+        ctx.bezierCurveTo(-FACE_W * 0.42, top - 110, FACE_W * 0.5, top - 130, tip.x, tip.y)
+        ctx.bezierCurveTo(FACE_W * 0.42, top - 40, FACE_W * 0.5, top + 10, FACE_W * 0.5, top + 64)
+        ctx.closePath(); ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        for (const [x, y] of [[-60, top - 20], [10, top - 50], [70, top - 30], [-20, top + 20], [60, top + 30]] as const) { ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill() }
+        ctx.fillStyle = '#FFFFFF'
+        ctx.beginPath(); ctx.roundRect(-FACE_W * 0.53, top + 44, FACE_W * 1.06, 40, 18); ctx.fill()
+        ctx.beginPath(); ctx.arc(tip.x, tip.y + 6, 24, 0, Math.PI * 2); ctx.fill()
+        break
+      }
+      case 'none': break
+    }
     ctx.restore()
   }
 

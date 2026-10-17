@@ -3,7 +3,7 @@ import type { ScoreSnapshot } from '../game/ScoreManager'
 import { TOOLS } from '../game/tools'
 
 const TITLES: readonly [number, string][] = [
-  [0, 'Isınma Turu'], [150, 'Tribün Çaylağı'], [400, 'Amigo Adayı'], [800, 'Tribün Lideri'], [1400, 'Kale Arkası Efsanesi'], [2200, 'Efsane Taraftar'],
+  [0, 'Isınma Turu'], [150, 'Çırak Şaplakçı'], [400, 'Terlik Ustası'], [800, 'Pasta Pilotu'], [1400, 'Nakavt Kralı'], [2200, 'Efsane Şaplakçı'],
 ]
 const titleFor = (score: number) => [...TITLES].reverse().find(([min]) => score >= min)![1]
 
@@ -24,14 +24,14 @@ export function ResultsScreen({ image, stats, onReplay, onNewPhoto, onMenu }: Pr
   const download = () => {
     const a = document.createElement('a')
     a.href = image
-    a.download = `tribun-sakasi-${stats.score}.png`
+    a.download = `saplak-sov-${stats.score}.png`
     a.click()
   }
 
   return (
     <main className="screen results">
       <div className="results-card">
-        <h2 ref={heading} tabIndex={-1} className="sr-only">Maç sonucu</h2>
+        <h2 ref={heading} tabIndex={-1} className="sr-only">Tur sonucu</h2>
         {image && <div className="results-photo"><img src={image} alt="Karakterinin son hâli" /></div>}
         <div className="title-badge">{titleFor(stats.score)}</div>
         <div>

@@ -1,7 +1,8 @@
-# Tribün Şakası
+# Şaplak Şov
 
-Fotoğrafını yükle, yüzün tribündeki taraftar karakterine yerleşsin; sünger sopa, kremalı pasta, su tabancası,
-gıdıklama tüyü, komik surat, lastik tavuk ve tezahüratla 60 saniyede en yüksek komboyu yap.
+Fotoğrafını yükle, yüz karaktere uyarlansın; ortamı seç (ofis, boks ringi, mutfak, sınıf, plaj, ev) ve
+tokat, boks eldiveni, terlik, sünger sopa, kremalı pasta, su tabancası, lastik tavuk, gıdıklama tüyüyle
+60 saniyede en yüksek komboyu yap. Her 10 komboda NAKAVT! Hepsi çizgi film şakası: kan ya da gerçekçi yara yok.
 
 Her şey tarayıcıda çalışır: fotoğraf ve yüz algılama hiçbir sunucuya gitmez, kalıcı saklanmaz.
 
@@ -27,8 +28,9 @@ bash tests/run-e2e.sh masaustu     # ya da: telefon
 ```
 
 Uçtan uca test (Playwright) açılıştan sonuca kadar tüm akışı oynar: yüz bulma, çok yüz seçimi, elle kırpma,
-7 aracın her biri, klavye, dokunma, ıska, hızlı tıklama, ses aç/kapa (üretilen ses kaynağı sayısıyla), skor/kombo,
-sonuç, tekrar oyna, geçersiz dosya, yatay taşma ve konsol hataları. Ekran görüntüleri `tests/out/` klasörüne yazılır.
+6 ortamın her biri, 8 aracın her biri, klavye, dokunma, nakavt, ıska, hızlı tıklama, ses aç/kapa (üretilen ses
+kaynağı sayısıyla), skor/kombo, sonuç, tekrar oyna, geçersiz dosya, yatay taşma ve konsol hataları.
+Ekran görüntüleri `tests/out/` klasörüne yazılır.
 
 ## Mimari
 
@@ -37,11 +39,12 @@ sonuç, tekrar oyna, geçersiz dosya, yatay taşma ve konsol hataları. Ekran g�
 | PhotoUpload | `src/components/PhotoUpload.tsx`, `CropEditor.tsx` | Dosya / kamera / sürükle-bırak, yüz seçimi, kırpma |
 | FaceDetection | `src/face/FaceDetection.ts` | MediaPipe Face Landmarker (tarayıcıda), kırpma çerçevesi, yüz noktaları |
 | — | `src/face/faceAsset.ts` | Kırp + hizala + kenarı yumuşat, çizgi film filtresi, maskot yüz |
-| CharacterRenderer | `src/game/CharacterRenderer.ts` | Gövde, forma, atkı, kollar, kafa; yay tabanlı poz; ağız açma; ifadeler |
+| Ortamlar | `src/game/scenes.ts`, `src/components/CharacterSetup.tsx` | 6 ortam: arka plan, ön eşya, kıyafet, şapka, laflar, tur sonu afişi |
+| CharacterRenderer | `src/game/CharacterRenderer.ts` | Kıyafetli gövde, kollar, kafa; yay tabanlı poz; ağız açma; ifadeler; şapka |
 | GameCanvas | `src/components/GameCanvas.tsx` | React ↔ motor köprüsü (kurulum / temizlik) |
-| — | `src/game/GameEngine.ts` | requestAnimationFrame döngüsü, stadyum, girdi, bekleme süreleri |
-| AnimationManager | `src/game/AnimationManager.ts` | Araç efektleri, tepkiler, öncelikli ifadeler, parçacıklar, yazılar |
+| — | `src/game/GameEngine.ts` | requestAnimationFrame döngüsü, girdi, bekleme süreleri, nakavt, demo |
+| AnimationManager | `src/game/AnimationManager.ts` | Araç efektleri, tepkiler, el izi / şişlik / krema izleri, parçacıklar, yazılar |
 | SoundManager | `src/game/SoundManager.ts` | Web Audio ile programatik sesler, çeşitleme, ses seviyesi |
 | ScoreManager | `src/game/ScoreManager.ts` | Skor, kombo, çarpan, eşik mesajları, 60 sn tur |
-| GameControls | `src/components/GameControls.tsx`, `Hud.tsx` | Araç çubuğu (bekleme halkası), skor göstergesi |
-| ResultsScreen | `src/components/ResultsScreen.tsx` | Toplam skor, en yüksek kombo, kullanılan etkileşimler, görüntü indirme |
+| GameControls | `src/components/GameControls.tsx`, `Hud.tsx` | Araç çubuğu (bekleme göstergesi), skor göstergesi |
+| ResultsScreen | `src/components/ResultsScreen.tsx` | Toplam skor, en yüksek kombo, kullanılan araçlar, görüntü indirme |

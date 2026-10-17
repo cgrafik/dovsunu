@@ -7,12 +7,12 @@ export const ROUND_SECONDS = 60
 export const COMBO_WINDOW_MS = 1600
 
 const MILESTONES: readonly [number, string][] = [
-  [100, 'Tribün ısındı!'],
-  [250, 'Hakem nerede?!'],
-  [500, 'Maç bizim maçımız!'],
-  [800, 'Stat yıkılıyor!'],
-  [1200, 'Efsane taraftar!'],
-  [1800, 'Kupa sizin! 🏆'],
+  [100, 'Isınma bitti!'],
+  [250, 'Şaplak ustası!'],
+  [500, 'Durdurun şunu!'],
+  [800, 'Kimse kurtaramaz!'],
+  [1200, 'Efsane şaplak!'],
+  [1800, 'Nakavt kralı! 🏆'],
   [2600, 'Tarih yazıldı!'],
 ]
 

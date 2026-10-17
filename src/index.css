@@ -1,10 +1,10 @@
-/* Tribün Şakası — oyuna özel tasarım sistemi */
+/* Şaplak Şov — oyuna özel tasarım sistemi */
 :root {
   --ink: #1b1f3b;
   --ink-soft: #3a3f66;
-  --pitch: #123b2c;
-  --pitch-deep: #0b2a20;
-  --pitch-line: #1e5641;
+  --pitch: #3a2350;
+  --pitch-deep: #23142f;
+  --pitch-line: #4d2f66;
   --cream: #fff4e0;
   --cream-dim: #e8dcc4;
   --tomato: #ff4b3e;
@@ -42,7 +42,7 @@ img { display: block; max-width: 100%; }
   flex-direction: column;
   background:
     repeating-linear-gradient(90deg, transparent 0 79px, rgba(255, 255, 255, 0.025) 79px 80px),
-    radial-gradient(1200px 600px at 50% -10%, #1a5240 0%, transparent 60%),
+    radial-gradient(1200px 600px at 50% -10%, #4a2a66 0%, transparent 60%),
     var(--pitch-deep);
 }
 
@@ -189,6 +189,23 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 .swatch { width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--ink); cursor: pointer; background: linear-gradient(135deg, var(--a) 0 50%, var(--b) 50% 100%); transition: transform 0.12s ease; }
 .swatch:hover { transform: scale(1.07); }
 .swatch[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--sun), 0 0 0 6px var(--ink); }
+.scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.scene-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 92px; padding: 10px 6px; border-radius: 16px; cursor: pointer;
+  border: 3px solid var(--ink); color: var(--ink);
+  background: linear-gradient(160deg, var(--a) 0 55%, var(--b) 55% 100%);
+  box-shadow: 0 4px 0 var(--ink);
+  transition: transform 0.12s var(--ease), box-shadow 0.12s ease;
+}
+.scene-card:hover { transform: translateY(-2px); }
+.scene-card:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.scene-card[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--sun), 0 0 0 6px var(--ink); }
+.scene-card:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+.scene-card .emoji { font-size: 30px; line-height: 1; }
+.scene-card .name { font: 400 15px/1.1 var(--font-display); }
+.scene-card .blurb { font-size: 11px; font-weight: 800; opacity: 0.75; text-align: center; }
+@media (max-width: 380px) { .scenes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .field { display: grid; gap: 6px; font-weight: 800; font-size: 14px; }
 .field input[type='text'] { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border-radius: 12px; border: 3px solid var(--ink); background: var(--cream); color: var(--ink); font-weight: 800; font-size: 17px; }
 .field input:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
@@ -234,11 +251,11 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 
 /* araç çubuğu */
 .tools-wrap { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.tools { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
+.tools { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
 @media (max-width: 560px) { .tools { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 900px) and (min-aspect-ratio: 1/1) {
   .tools { grid-template-columns: 1fr; align-content: start; }
-  .tool { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 62px; padding: 8px 14px; }
+  .tool { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 56px; padding: 6px 14px; }
   .tool .label { font-size: 16px; text-align: left; }
   .tool .emoji { font-size: 30px; }
 }
