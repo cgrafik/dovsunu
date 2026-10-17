@@ -92,7 +92,8 @@ export class CharacterRenderer {
   impact(world: Vec, side: 1 | -1, power: number) {
     if (!this.warp) return
     const h = this.toHeadLocal(world)
-    this.warp.impact({ x: (h.x / FACE_W + 0.5) * this.warp.texW, y: (h.y / FACE_H + 0.5) * this.warp.texH }, { x: -side, y: 0.25 }, power)
+    const E = this.face.expand
+    this.warp.impact({ x: (h.x / (FACE_W * E) + 0.5) * this.warp.texW, y: (h.y / (FACE_H * E) + 0.5) * this.warp.texH }, { x: -side, y: 0.25 }, power)
   }
 
   dispose() { this.warp?.dispose(); this.warp = null; this.warpFace = null }
@@ -107,7 +108,7 @@ export class CharacterRenderer {
       const t = isBlink && blink ? 1 : target[c] ?? 0
       this.shape[c] += (t - this.shape[c]) * (1 - Math.exp(-dt * (isBlink ? 40 : 14)))
     }
-    this.shape.jaw = this.pose.jaw.value * JAW_PX * (this.warp.texH / FACE_H)
+    this.shape.jaw = this.pose.jaw.value * JAW_PX * (this.warp.texH / (FACE_H * this.face.expand))
     this.warp.update(dt)
   }
 
@@ -344,21 +345,26 @@ export class CharacterRenderer {
     const f = this.face.features
     // kulaklar + kafa tabanı (yüzün yumuşak kenarı arkasında ten rengi)
     ctx.fillStyle = this.face.skin
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * FACE_W * 0.47, 8, 26, 40, 0, 0, Math.PI * 2); ctx.fill() }
-    ctx.beginPath(); ctx.ellipse(0, 6, FACE_W * 0.47, FACE_H * 0.47, 0, 0, Math.PI * 2); ctx.fill()
+    // (saçıyla kesilmiş kafada gerçek kulaklar fotoğraftan gelir)
+    if (!this.face.cutout) {
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * FACE_W * 0.47, 8, 26, 40, 0, 0, Math.PI * 2); ctx.fill() }
+      ctx.beginPath(); ctx.ellipse(0, 6, FACE_W * 0.47, FACE_H * 0.47, 0, 0, Math.PI * 2); ctx.fill()
+    }
+    // görsel, tüm kafa kesiminde yüz çerçevesinden expand kat büyüktür (yüz aynı boyutta kalır)
+    const DW = FACE_W * this.face.expand, DH = FACE_H * this.face.expand
 
     const warp = this.warp?.ok ? this.warp : null
     if (warp) {
       // gerçekçi yüz: bükülmüş ağ ara canvas'a çizilir (çevresindeki pay da yüz ölçeğiyle yerleşir)
       warp.render(this.shape, this.look.cartoon)
-      const sx = FACE_W / warp.texW, sy = FACE_H / warp.texH
-      ctx.drawImage(warp.canvas, -FACE_W / 2 - WARP_PAD_X * sx, -FACE_H / 2 - WARP_PAD_TOP * sy, warp.canvas.width * sx, warp.canvas.height * sy)
+      const sx = DW / warp.texW, sy = DH / warp.texH
+      ctx.drawImage(warp.canvas, -DW / 2 - WARP_PAD_X * sx, -DH / 2 - WARP_PAD_TOP * sy, warp.canvas.width * sx, warp.canvas.height * sy)
     } else {
       // yüz: ağız hizasından bölünür; çene (alt parça) jaw kadar aşağı kayar
       const jaw = this.pose.jaw.value * JAW_PX
       const mouth = this.featureLocal(f.mouth)
-      const splitPx = clamp(f.mouth.y, 0.5, 0.9) * face.height
-      const splitLocal = (splitPx / face.height - 0.5) * FACE_H
+      const splitPx = ((clamp(f.mouth.y, 0.5, 0.9) - 0.5) / this.face.expand + 0.5) * face.height
+      const splitLocal = (splitPx / face.height - 0.5) * DH
       if (jaw > 1) {
         // ağız içi
         const mw = Math.max(0.18, f.mouthWidth) * FACE_W * 0.62
@@ -367,8 +373,8 @@ export class CharacterRenderer {
         ctx.fillStyle = '#e0646c'
         ctx.beginPath(); ctx.ellipse(mouth.x, splitLocal + jaw * 0.8, mw * 0.55, jaw * 0.28 + 3, 0, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.drawImage(face, 0, 0, face.width, splitPx, -FACE_W / 2, -FACE_H / 2, FACE_W, splitLocal + FACE_H / 2)
-      ctx.drawImage(face, 0, splitPx, face.width, face.height - splitPx, -FACE_W / 2, splitLocal + jaw, FACE_W, FACE_H / 2 - splitLocal)
+      ctx.drawImage(face, 0, 0, face.width, splitPx, -DW / 2, -DH / 2, DW, splitLocal + DH / 2)
+      ctx.drawImage(face, 0, splitPx, face.width, face.height - splitPx, -DW / 2, splitLocal + jaw, DW, DH / 2 - splitLocal)
     }
 
     // allık

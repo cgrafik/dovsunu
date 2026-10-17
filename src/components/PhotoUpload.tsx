@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { detectFaces, featuresFromPoints, preloadDetector, FACE_ASPECT, type CropRect, type DetectedFace } from '../face/FaceDetection'
-import { buildFaceAsset, DEFAULT_FEATURES, FACE_PX_W, renderCrop } from '../face/faceAsset'
+import { detectFaces, featuresFromPoints, preloadDetector, segmentPerson, FACE_ASPECT, type CropRect, type DetectedFace } from '../face/FaceDetection'
+import { buildFaceAsset, DEFAULT_FEATURES, FACE_PX_W, HEAD_EXPAND, renderCrop } from '../face/faceAsset'
 import type { FaceAsset, FaceFeatures } from '../game/types'
 import { CropEditor } from './CropEditor'
 
@@ -106,6 +106,14 @@ export function PhotoUpload({ onDone, onBack }: { onDone: (a: FaceAsset) => void
         const [f] = await detectFaces(faceCanvas)
         if (f) features = featuresFromPoints(f.points, { cx: FACE_PX_W / 2, cy: faceCanvas.height / 2, w: FACE_PX_W, angle: 0 })
       } catch { /* varsayılan oranlar */ }
+    }
+    // yüz noktaları varsa saçıyla tüm kafayı kes: daha geniş kırp, kişiyi arka plandan ayır
+    if (features.mesh) {
+      setPhase({ k: 'busy', text: 'Saç ve kafa ayrılıyor…' })
+      const head = renderCrop(source, { ...crop, w: crop.w * HEAD_EXPAND }, Math.round(FACE_PX_W * HEAD_EXPAND))
+      const person = await segmentPerson(head)
+      if (person) { faceCanvas.width = 0; onDone(buildFaceAsset(head, features, person, HEAD_EXPAND)); return }
+      head.width = 0
     }
     onDone(buildFaceAsset(faceCanvas, features))
   }

@@ -1,10 +1,13 @@
 // Yüz görseli hazırlama: kırp + hizala + kenarı yumuşat (+ çizgi film varyantı). Orijinal fotoğraf değişmez;
 // karakter için ayrı, küçük bir katman (400×500) üretilir.
-import type { FaceAsset, FaceFeatures } from '../game/types'
+import type { FaceAsset, FaceFeatures, Vec } from '../game/types'
 import { FACE_ASPECT, type CropRect } from './FaceDetection'
+import { LOOP_FACE_OVAL } from './meshData'
 
 export const FACE_PX_W = 400
 export const FACE_PX_H = Math.round(FACE_PX_W * FACE_ASPECT)   // 500
+/** Tüm kafa kesiminde kırpma bu oranda büyütülür (saç ve kulaklar sığsın); yüz noktaları normal kırpmaya göre kalır */
+export const HEAD_EXPAND = 1.4
 
 export const DEFAULT_FEATURES: FaceFeatures = {
   leftEye: { x: 0.36, y: 0.45 }, rightEye: { x: 0.64, y: 0.45 },
@@ -36,13 +39,13 @@ function applyFeatherMask(c: HTMLCanvasElement) {
 }
 
 /** Kaynak görselden dönük kırpma → 400×500 yüz katmanı */
-export function renderCrop(source: CanvasImageSource, crop: CropRect): HTMLCanvasElement {
-  const c = canvas()
+export function renderCrop(source: CanvasImageSource, crop: CropRect, outW = FACE_PX_W): HTMLCanvasElement {
+  const c = canvas(outW, Math.round(outW * FACE_ASPECT))
   const ctx = c.getContext('2d')!
   ctx.imageSmoothingQuality = 'high'
   ctx.save()
-  ctx.translate(FACE_PX_W / 2, FACE_PX_H / 2)
-  ctx.scale(FACE_PX_W / crop.w, FACE_PX_W / crop.w)
+  ctx.translate(c.width / 2, c.height / 2)
+  ctx.scale(outW / crop.w, outW / crop.w)
   ctx.rotate(-crop.angle)
   ctx.drawImage(source, -crop.cx, -crop.cy)
   ctx.restore()
@@ -113,12 +116,71 @@ function sampleSkin(c: HTMLCanvasElement, f: FaceFeatures): string {
   return `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`
 }
 
-export function buildFaceAsset(face: HTMLCanvasElement, features: FaceFeatures): FaceAsset {
-  const skin = sampleSkin(face, features)       // maske öncesi örnekle (kenar saydamlığı karışmasın)
+const smoothstep = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
+
+/**
+ * Tüm kafa maskesi: kişi haritasından saç + yüz + kulaklar alınır; çenenin altı (boyun, omuz, kıyafet)
+ * yumuşakça silinir. Görselin üst ve yan kenarında ince bir geçiş bırakılır (saç kesik görünmesin).
+ */
+function headAlpha(W: number, H: number, person: Float32Array, mesh: readonly Vec[], expand: number): Float32Array {
+  const t = (p: Vec): Vec => ({ x: ((p.x - 0.5) / expand + 0.5) * W, y: ((p.y - 0.5) / expand + 0.5) * H })
+  const faceH = t(mesh[152]).y - t(mesh[10]).y
+  // Kesim çizgisi: yüz genişliğinde çene hattı (altındaki boyun, yaka gider); yanlarda kulak memesi hizası
+  const earL = t(mesh[234]), earR = t(mesh[454])
+  const jaw = LOOP_FACE_OVAL.map(i => t(mesh[i])).filter(p => p.y > Math.min(earL.y, earR.y)).sort((a, b) => a.x - b.x)
+  const sideCut = (y0: number) => y0 + faceH * 0.2
+  const cutAt = (x: number) => {
+    if (x <= jaw[0].x) return sideCut(earL.y)
+    if (x >= jaw[jaw.length - 1].x) return sideCut(earR.y)
+    let k = 1
+    while (k < jaw.length - 1 && jaw[k].x < x) k++
+    const a = jaw[k - 1], b = jaw[k], u = (x - a.x) / Math.max(1e-3, b.x - a.x)
+    const y = a.y + (b.y - a.y) * u
+    // kulak hizasından çeneye geçişte kesim kulak memesinin altına iner (kulaklar tam kalsın)
+    const nearEar = Math.min(x - jaw[0].x, jaw[jaw.length - 1].x - x) / (faceH * 0.12)
+    return Math.max(y + faceH * 0.015, x < (earL.x + earR.x) / 2 ? sideCut(earL.y) - nearEar * faceH : sideCut(earR.y) - nearEar * faceH)
+  }
+  const cut = new Float32Array(W)
+  for (let x = 0; x < W; x++) cut[x] = cutAt(x)
+  const fade = faceH * 0.035, edge = Math.max(3, W * 0.012)
+  const a = new Float32Array(W * H)
+  for (let y = 0; y < H; y++) {
+    const ey = smoothstep(0, edge, y)
+    for (let x = 0; x < W; x++) {
+      const ex = smoothstep(0, edge, x) * smoothstep(0, edge, W - 1 - x)
+      const below = 1 - smoothstep(cut[x] - fade, cut[x] + fade, y)
+      a[y * W + x] = smoothstep(0.3, 0.7, person[y * W + x]) * below * ey * ex
+    }
+  }
+  return a
+}
+
+function applyAlpha(c: HTMLCanvasElement, alpha: Float32Array) {
+  const ctx = c.getContext('2d')!
+  const img = ctx.getImageData(0, 0, c.width, c.height), d = img.data
+  for (let i = 0; i < alpha.length; i++) d[i * 4 + 3] = Math.round(d[i * 4 + 3] * alpha[i])
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
+ * Karakter yüzü. person verilirse (kişi haritası) saçıyla tüm kafa kesilir; görsel normal kırpmanın expand katı
+ * genişliğindedir ve yüz noktaları normal kırpmaya göre kalır. Verilmezse eski oval maske kullanılır.
+ */
+export function buildFaceAsset(face: HTMLCanvasElement, features: FaceFeatures, person: Float32Array | null = null, expand = 1): FaceAsset {
+  const tex = (p: Vec): Vec => ({ x: (p.x - 0.5) / expand + 0.5, y: (p.y - 0.5) / expand + 0.5 })
+  const texFeatures = { ...features, leftEye: tex(features.leftEye), rightEye: tex(features.rightEye), mouth: tex(features.mouth), nose: tex(features.nose) }
+  const skin = sampleSkin(face, texFeatures)       // maske öncesi örnekle (kenar saydamlığı karışmasın)
   const cartoon = cartoonize(face)
-  applyFeatherMask(face)
-  applyFeatherMask(cartoon)
-  return { natural: face, cartoon, features, skin }
+  const cutout = !!person && !!features.mesh
+  if (cutout) {
+    const alpha = headAlpha(face.width, face.height, person!, features.mesh!, expand)
+    applyAlpha(face, alpha)
+    applyAlpha(cartoon, alpha)
+  } else {
+    applyFeatherMask(face)
+    applyFeatherMask(cartoon)
+  }
+  return { natural: face, cartoon, features, skin, expand: cutout ? expand : 1, cutout }
 }
 
 /** Belleği bırak: oyun sıfırlanınca / yeni fotoğrafta geçici görseller temizlenir */

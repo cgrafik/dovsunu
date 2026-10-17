@@ -1,6 +1,6 @@
 // Yüz algılama — MediaPipe Face Landmarker, tamamen tarayıcıda (wasm + model public/ klasöründen; fotoğraf hiçbir yere gitmez).
 // Model ilk kullanımda yüklenir (≈4 MB) ve bellekte tutulur.
-import type { FaceLandmarker } from '@mediapipe/tasks-vision'
+import type { FaceLandmarker, ImageSegmenter } from '@mediapipe/tasks-vision'
 import type { FaceFeatures, Vec } from '../game/types'
 
 const BASE = import.meta.env.BASE_URL
@@ -36,8 +36,41 @@ async function getLandmarker(): Promise<FaceLandmarker> {
   return landmarker
 }
 
-/** Modeli arka planda önceden yükle (fotoğraf ekranı açılınca) */
-export function preloadDetector() { void getLandmarker().catch(() => {}) }
+let segmenter: Promise<ImageSegmenter> | null = null
+
+/** Kişi ayırıcı (selfie segmenter, ≈250 KB): saçıyla tüm kafayı arka plandan ayırmak için */
+async function getSegmenter(): Promise<ImageSegmenter> {
+  if (!segmenter) {
+    segmenter = (async () => {
+      const { ImageSegmenter, FilesetResolver } = await import('@mediapipe/tasks-vision')
+      const fileset = await FilesetResolver.forVisionTasks(`${BASE}mediapipe`)
+      return ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: `${BASE}models/selfie_segmenter.tflite`, delegate: 'CPU' },
+        runningMode: 'IMAGE', outputConfidenceMasks: true, outputCategoryMask: false,
+      })
+    })()
+    segmenter.catch(() => { segmenter = null })
+  }
+  return segmenter
+}
+
+/** Modelleri arka planda önceden yükle (fotoğraf ekranı açılınca) */
+export function preloadDetector() { void getLandmarker().catch(() => {}); void getSegmenter().catch(() => {}) }
+
+/** Görseldeki kişinin olasılık haritası (0..1, görselle aynı boyutta). Model açılamazsa null */
+export async function segmentPerson(img: HTMLCanvasElement): Promise<Float32Array | null> {
+  try {
+    const seg = await getSegmenter()
+    let out: Float32Array | null = null
+    seg.segment(img, res => {
+      const masks = res.confidenceMasks ?? []
+      // tek çıktılı modelde maske kişiyi, iki çıktılıda ikincisi kişiyi gösterir
+      const m = masks[masks.length - 1]
+      if (m && m.width === img.width && m.height === img.height) out = new Float32Array(m.getAsFloat32Array())
+    })
+    return out
+  } catch { return null }
+}
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y)
 const mid = (a: Vec, b: Vec): Vec => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })

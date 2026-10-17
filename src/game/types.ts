@@ -29,6 +29,10 @@ export interface FaceAsset {
   features: FaceFeatures
   /** Yüzden örneklenen ten rengi (boyun, kulak, eller için) */
   skin: string
+  /** Görsel, normal yüz kırpmasının kaç katı (tüm kafa kesiminde > 1; özellik noktaları normal kırpmaya göre) */
+  expand: number
+  /** Saçıyla tüm kafa kesildi mi (true → çizilmiş kulak ve oval taban gerekmez) */
+  cutout: boolean
 }
 
 export type ToolId = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'dizzy' | 'tickle'

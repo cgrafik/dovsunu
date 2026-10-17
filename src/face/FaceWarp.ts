@@ -97,12 +97,14 @@ export class FaceWarp {
 
     // ── Dinlenme konumları (yüz görseli pikseli) ──
     const R = this.rest
-    for (let i = 0; i < N; i++) { R[i * 2] = mesh[i].x * this.texW; R[i * 2 + 1] = mesh[i].y * this.texH }
+    // yüz noktaları normal kırpmaya göre; görsel (tüm kafa kesiminde) expand kat geniştir
+    const E = asset.expand
+    for (let i = 0; i < N; i++) { R[i * 2] = ((mesh[i].x - 0.5) / E + 0.5) * this.texW; R[i * 2 + 1] = ((mesh[i].y - 0.5) / E + 0.5) * this.texH }
     let cx = 0, cy = 0
     for (const i of LOOP_FACE_OVAL) { cx += R[i * 2]; cy += R[i * 2 + 1] }
     cx /= RING; cy /= RING
     LOOP_FACE_OVAL.forEach((i, k) => {
-      for (const [base, f] of [[MID0, 1.35], [OUT0, 2.3]] as const) {
+      for (const [base, f] of [[MID0, 1.35], [OUT0, 3.2]] as const) {
         R[(base + k) * 2] = cx + (R[i * 2] - cx) * f
         R[(base + k) * 2 + 1] = cy + (R[i * 2 + 1] - cy) * f
       }
