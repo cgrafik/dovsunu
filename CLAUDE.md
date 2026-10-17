@@ -49,7 +49,8 @@ This file guides Claude Code when working in this repository.
 
 ## Working rules
 
-- Commit locally only. **No GitHub remote yet, so don't push or publish without the user's approval.**
+- **Live on GitHub Pages:** public repo `cgrafik/dovsunu`, https://cgrafik.github.io/dovsunu/. Every push to `main` builds (lint + build with `BASE_PATH=/dovsunu/`) and deploys via `.github/workflows/pages.yml`, so push only with the user's approval.
+- Live e2e: `URL=https://cgrafik.github.io/dovsunu/ node tests/e2e.cjs telefon` (with the `LD_LIBRARY_PATH` from `tests/run-e2e.sh`).
 - The user doesn't want to run terminal commands. Run things yourself, and open files in VS Code when their input is needed.
 - **Known gaps:**
   - Emoji show as boxes only in headless test Chromium.
