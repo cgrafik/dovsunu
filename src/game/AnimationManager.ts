@@ -19,16 +19,18 @@ export interface AnimHooks {
   excite: (amount: number) => void
 }
 
-type PShape = 'dot' | 'foam' | 'cream' | 'drop' | 'confetti' | 'spark' | 'stream'
+type PShape = 'dot' | 'foam' | 'cream' | 'drop' | 'confetti' | 'spark' | 'stream' | 'bill' | 'flame' | 'smoke'
 interface Particle {
   x: number; y: number; vx: number; vy: number; life: number; max: number; size: number
   color: string; gravity: number; drag: number; shape: PShape; rot: number; vr: number
+  /** Banknot: kalan ömür bu değerin altına inince tutuşur, yanarak kısalır ve küle döner */
+  burnAt?: number
 }
 
 interface Effect { t: number; dur: number; update(dt: number): void; draw(ctx: CanvasRenderingContext2D): void }
 
 interface Decal {
-  kind: 'cream' | 'wet' | 'hand' | 'bump'
+  kind: 'cream' | 'wet' | 'hand' | 'bump' | 'stamp'
   t: number; life: number
   blobs: { x: number; y: number; r: number; drip: number; speed: number }[]
   /** el izi / şişlik: kafa yerel konum + açı */
@@ -50,6 +52,8 @@ const BUBBLES: Record<ToolId, readonly string[]> = {
   water: ['Islandım!', 'Hayır, saçım!', 'Soğuuk!', 'Yağmur mu yağıyor?'],
   dizzy: ['Neredeyim?', 'Yıldızlar...', 'Bugün günlerden ne?', 'Tavuk mu konuştu?'],
   tickle: ['Hahaha dur!', 'Gıdıklanıyorum!', 'Yapmaa!', 'Hihihi!'],
+  shock: ['Saçlarım!', 'Fişi çekin!', 'Bzzt bzzt!', 'Elektrik faturası kimde?!'],
+  loan: ['Benim imzam yok!', 'Ne kredisi?!', 'Faizi ne kadar?!', 'Paralarım yanıyor!'],
 }
 const TEXTS: Record<ToolId, readonly string[]> = {
   slap: ['ŞAAP!', 'ŞLAK!', 'TOKAT!', 'ŞAK!'],
@@ -60,9 +64,11 @@ const TEXTS: Record<ToolId, readonly string[]> = {
   water: ['FIŞŞ!', 'ŞIPP!', 'VIZZ!'],
   dizzy: ['ZONK!', 'GAKK!', 'BIDIK!'],
   tickle: ['KIKIR!', 'HİHİ!', 'GIDI GIDI!'],
+  shock: ['BZZZT!', 'ZIRRT!', 'VIZZT!'],
+  loan: ['ONAYLANDI!', 'DAMGA!', 'ÇAT!'],
 }
 const TEXT_COLORS: Record<ToolId, string> = {
-  slap: '#FF8FB1', punch: '#FF4B3E', slipper: '#5BC0EB', sponge: '#FFC93C', pie: '#FFB3C7', water: '#7FD3FF', dizzy: '#FFE066', tickle: '#FF9F43',
+  slap: '#FF8FB1', punch: '#FF4B3E', slipper: '#5BC0EB', sponge: '#FFC93C', pie: '#FFB3C7', water: '#7FD3FF', dizzy: '#FFE066', tickle: '#FF9F43', shock: '#FFF06B', loan: '#7BE495',
 }
 const CONFETTI = ['#FFC93C', '#FF4B3E', '#5BC0EB', '#7BE495', '#FFFFFF', '#B98CFF']
 
@@ -192,6 +198,8 @@ export class AnimationManager {
       case 'water': this.effects.push(this.waterSquirt(target, side)); break
       case 'dizzy': this.effects.push(this.chickenBop(side)); break
       case 'tickle': this.effects.push(this.feather(zone === 'body' ? at : this.char.bodyToWorld({ x: rand(-60, 60), y: -150 }))); break
+      case 'shock': this.effects.push(this.shockZap(side)); break
+      case 'loan': this.effects.push(this.loanStamp(side)); break
     }
   }
 
@@ -594,6 +602,132 @@ export class AnimationManager {
     this.schedule(0.9, () => this.say('dizzy', 0.8))
   }
 
+  // Elektrik: tepeden yıldırım iner; karakter titreyip yanıp söner, saçları dikilir, yüzü isle kararır, kafasından duman çıkar
+  private shockZap(side: 1 | -1): Effect {
+    const IN = 0.12, ZAP = 1.0
+    let hit = false
+    this.hooks.sound('zap')
+    const self: Effect = {
+      t: 0, dur: IN + ZAP + 0.1,
+      update: (dt) => {
+        self.t += dt
+        if (!hit && self.t >= IN) { hit = true; this.shockImpact(side) }
+        const on = hit && self.t < IN + ZAP
+        this.char.zap = on ? 1 : 0
+        if (on) {
+          this.char.pose.jitter = Math.max(this.char.pose.jitter, 0.9)
+          if (Math.random() < dt * 30) {
+            const h = this.char.headCenter(), a = rand(0, Math.PI * 2), r = rand(90, 190)
+            this.burst({ x: h.x + Math.cos(a) * r, y: h.y + 80 + Math.sin(a) * r * 1.4 }, 2, 'spark', ['#FFF6A8', '#FFFFFF', '#9BE7FF'], [150, 420], { gravity: 250 })
+          }
+        }
+      },
+      draw: (ctx) => {
+        const t = self.t, h = this.char.headCenter()
+        ctx.save()
+        if (t < IN + 0.07) {
+          const u = clamp(t / IN, 0, 1), top = { x: h.x + side * 90, y: -420 }
+          drawBolt(ctx, top, { x: lerp(top.x, h.x, u), y: lerp(top.y, h.y - 120, u) }, 26, '#FFF06B')
+        }
+        if (hit && t < IN + ZAP) {
+          // vücudu saran kıvılcım arkları (her karede yeniden: çıtırdar)
+          for (let i = 0; i < 4; i++) {
+            const a = rand(0, Math.PI * 2), r1 = rand(120, 170), a2 = a + rand(0.5, 1.2)
+            drawBolt(ctx, { x: h.x + Math.cos(a) * r1, y: h.y + Math.sin(a) * r1 }, { x: h.x + Math.cos(a2) * r1, y: h.y + Math.sin(a2) * r1 }, 12, i % 2 ? '#9BE7FF' : '#FFF06B')
+          }
+          for (let i = 0; i < 2; i++) {
+            const p1 = this.char.bodyToWorld({ x: rand(-170, 170), y: rand(-300, 40) }), p2 = this.char.bodyToWorld({ x: rand(-170, 170), y: rand(-300, 40) })
+            drawBolt(ctx, p1, p2, 10, '#FFF06B')
+          }
+          if (Math.sin(t * 48) > 0.55) { ctx.fillStyle = 'rgba(255,250,210,0.13)'; ctx.fillRect(-600, -1200, 2000, 2400) }
+        }
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  private shockImpact(side: 1 | -1) {
+    const p = this.char.pose, h = this.char.headCenter()
+    p.armL.impulse(10); p.armR.impulse(10); p.jaw.impulse(11); p.headY.impulse(-320); p.squash.set(1.12)
+    this.char.impact(h, side, 0.6)
+    this.char.soot = 1
+    this.char.blush = 0
+    this.setExpression('shock', 1.05, 3)
+    this.schedule(1.05, () => this.setExpression('dizzy', 1.3, 2))
+    this.hooks.sound('buzz')
+    this.schedule(0.15, () => this.hooks.sound('yell'))
+    this.schedule(0.45, () => this.hooks.sound('zap'))
+    this.popText('shock', h)
+    this.shake(9)
+    this.hooks.excite(0.6)
+    // elektrik bitince kafadan duman tüter
+    for (let i = 0; i < 4; i++) this.schedule(1.0 + i * 0.25, () => {
+      const top = this.char.headToWorld({ x: rand(-60, 60), y: -FACE_H * 0.5 })
+      this.burst(top, 3, 'smoke', ['rgba(70,70,78,0.55)', 'rgba(120,120,130,0.5)'], [30, 90], { gravity: -140, drag: 1.4, life: 1.5, max: 1.5, size: 16 })
+    })
+    this.schedule(1.1, () => this.say('shock', 0.9))
+  }
+
+  // Kredi çek: dev mühür alnına "KREDİ ONAY" basar; ceplerinden paralar fırlar, havada tutuşup kül olur
+  private loanStamp(side: 1 | -1): Effect {
+    const IN = 0.32
+    let hit = false
+    this.hooks.sound('whoosh')
+    const spot = () => this.char.headToWorld({ x: 0, y: -FACE_H * 0.17 })
+    const self: Effect = {
+      t: 0, dur: IN + 0.45,
+      update: (dt) => { self.t += dt; if (!hit && self.t >= IN) { hit = true; this.loanImpact(spot(), side) } },
+      draw: (ctx) => {
+        const t = self.t, s0 = spot()
+        let y: number, a = 1
+        if (t < IN) y = lerp(-380, s0.y - 70, easeInCubic(t / IN))
+        else { const u = clamp((t - IN) / 0.45, 0, 1); y = s0.y - 70 - easeOutCubic(u) * 160; a = 1 - u }
+        ctx.save(); ctx.globalAlpha = a; ctx.translate(s0.x + side * 6, y); ctx.rotate(side * -0.08)
+        drawRubberStamp(ctx)
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  private loanImpact(at: Vec, side: 1 | -1) {
+    const p = this.char.pose
+    p.headY.impulse(460); p.headSquash.set(0.78); p.squash.set(0.9); p.jaw.impulse(6)
+    this.char.impact(at, side, 0.7)
+    this.addDecal({ kind: 'stamp', t: 0, life: 4.5, blobs: [], x: rand(-10, 10), y: -FACE_H * 0.17, rot: rand(-0.18, 0.08) })
+    this.hooks.sound('stamp')
+    this.setExpression('shock', 0.9, 2)
+    this.popText('loan', at)
+    const debt = pick(['75.000', '250.000', '500.000', '1.000.000'])
+    this.floater(`-${debt} ₺ BORÇ`,{ x: clamp(at.x, 170, 630), y: at.y - 150 }, '#FF4B3E')
+    this.shake(7)
+    // paralar ceplerden fırlar
+    this.schedule(0.22, () => {
+      this.hooks.sound('cash')
+      const pocket = this.char.bodyToWorld({ x: 0, y: -110 })
+      for (let i = 0; i < this.n(14); i++) {
+        if (this.particles.length >= MAX_PARTICLES) this.particles.shift()
+        const life = rand(1.6, 2.1)
+        this.particles.push({
+          x: pocket.x + rand(-90, 90), y: pocket.y + rand(-30, 30), vx: rand(-300, 300), vy: rand(-720, -420), life, max: life,
+          size: rand(26, 34), color: '#7BC47F', gravity: 420, drag: 1.5, shape: 'bill', rot: rand(-1, 1), vr: rand(-5, 5), burnAt: life - rand(0.45, 0.7),
+        })
+      }
+    })
+    this.schedule(0.7, () => this.hooks.sound('fire'))
+    this.schedule(0.5, () => this.say('loan', 1))
+    // ağlama: gözlerden yaş damlaları
+    this.schedule(1.0, () => this.setExpression('shut', 1.3, 2))
+    const f = this.char.face.features
+    for (let i = 0; i < 7; i++) this.schedule(1.0 + i * 0.17, () => {
+      for (const e of [f.leftEye, f.rightEye]) {
+        const w = this.char.headToWorld(this.char.featureLocal({ x: e.x, y: e.y + 0.04 }))
+        this.burst(w, 1, 'drop', ['#7FD3FF', '#BDEBFF'], [60, 160], { gravity: 900, size: 7 })
+      }
+    })
+  }
+
   // ── Döngü ─────────────────────────────────────────────────────────────────────
   update(dt: number) {
     this.now += dt
@@ -618,6 +752,14 @@ export class AnimationManager {
       if (p.shape === 'stream' && p.life <= 0 && this.particles.length < MAX_PARTICLES - 3 && Math.random() < 0.35) {
         this.burst({ x: p.x, y: p.y }, 2, 'drop', ['#5BC0EB', '#9ADCFF'], [150, 450])
       }
+    }
+    // yanan banknotlar: alev saçar, bitince küle döner
+    for (const p of this.particles) {
+      if (p.shape !== 'bill' || p.burnAt === undefined || p.life > p.burnAt) continue
+      if (this.particles.length < MAX_PARTICLES - 4 && Math.random() < dt * 22) {
+        this.particles.push({ x: p.x + rand(-p.size, p.size), y: p.y, vx: rand(-30, 30), vy: rand(-160, -60), life: 0.45, max: 0.45, size: rand(7, 12), color: pick(['#FFB020', '#FF6A1A', '#FFE066']), gravity: -200, drag: 2, shape: 'flame', rot: 0, vr: 0 })
+      }
+      if (p.life <= 0) this.burst({ x: p.x, y: p.y }, 3, 'dot', ['#3A3330', '#5C5450', '#2A2422'], [30, 90], { gravity: 260, size: 4, life: 1, max: 1 })
     }
     this.particles = this.particles.filter(p => p.life > 0 && p.y < 1300)
 
@@ -658,6 +800,16 @@ export class AnimationManager {
         ctx.beginPath(); ctx.ellipse(0, 6, 30, 34, 0, 0, Math.PI * 2); ctx.fill()
         for (const [fx, h] of [[-24, 40], [-8, 48], [8, 46], [23, 38]] as const) { ctx.beginPath(); ctx.roundRect(fx - 7, -22 - h, 14, h + 6, 7); ctx.fill() }
         ctx.save(); ctx.translate(-30, 14); ctx.rotate(-0.9); ctx.beginPath(); ctx.roundRect(-7, -38, 14, 40, 7); ctx.fill(); ctx.restore()
+        ctx.restore()
+      } else if (d.kind === 'stamp') {
+        const g = d.t < 0.12 ? easeOutBack(d.t / 0.12) : 1
+        ctx.save(); ctx.translate(d.x ?? 0, d.y ?? 0); ctx.rotate(d.rot ?? 0); ctx.scale(g, g)
+        ctx.globalAlpha = fade * 0.9
+        ctx.strokeStyle = '#D7263D'; ctx.lineWidth = 7
+        ctx.beginPath(); ctx.roundRect(-120, -38, 240, 76, 10); ctx.stroke()
+        ctx.fillStyle = '#D7263D'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.font = `400 32px ${FONT_DISPLAY}`; ctx.fillText('KREDİ ONAY', 0, -8, 222)
+        ctx.font = `800 16px ${FONT_BODY}`; ctx.fillText('FAİZ %300 · 120 AY', 0, 22, 222)
         ctx.restore()
       } else if (d.kind === 'bump') {
         const g = d.t < 0.25 ? easeOutBack(d.t / 0.25) : 1, rad = 30 * g
@@ -706,6 +858,9 @@ export class AnimationManager {
           ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); break
         }
         case 'stream': ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); break
+        case 'bill': ctx.globalAlpha = 1; drawBill(ctx, p); break
+        case 'flame': { const r = p.size * clamp(p.life / p.max, 0.25, 1); ctx.beginPath(); ctx.ellipse(p.x, p.y, r * 0.7, r, 0, 0, Math.PI * 2); ctx.fill(); break }
+        case 'smoke': { const r = p.size * (1 + (p.max - p.life) * 1.6); ctx.globalAlpha = clamp(p.life / p.max, 0, 1) * 0.8; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); break }
         default: ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill()
       }
     }
@@ -795,4 +950,50 @@ export function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r:
 }
 
 /** Demo / boş ekran için rastgele bir araç */
-export const randomTool = (): ToolId => pick(['slap', 'punch', 'slipper', 'sponge', 'pie', 'water', 'dizzy', 'tickle'] as const)
+export const randomTool = (): ToolId => pick(['slap', 'punch', 'slipper', 'sponge', 'pie', 'water', 'dizzy', 'tickle', 'shock', 'loan'] as const)
+
+/** Kırık çizgili yıldırım: dış parıltı + beyaz çekirdek */
+function drawBolt(ctx: CanvasRenderingContext2D, a: Vec, b: Vec, width: number, color: string) {
+  const n = 7, dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len
+  const pts: Vec[] = [a]
+  for (let i = 1; i < n; i++) { const k = i / n, o = rand(-1, 1) * len * 0.12; pts.push({ x: a.x + dx * k + nx * o, y: a.y + dy * k + ny * o }) }
+  pts.push(b)
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  for (const [w, c, al] of [[width * 2.4, color, 0.35], [width, color, 1], [width * 0.35, '#FFFFFF', 1]] as const) {
+    ctx.globalAlpha = al; ctx.strokeStyle = c; ctx.lineWidth = w
+    ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+}
+
+/** Ahşap saplı dev mühür (taban aşağıda) */
+function drawRubberStamp(ctx: CanvasRenderingContext2D) {
+  ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 5; ctx.lineJoin = 'round'
+  ctx.fillStyle = '#A0632E'; ctx.beginPath(); ctx.ellipse(0, -150, 46, 34, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#C17A3A'; ctx.beginPath(); ctx.roundRect(-18, -128, 36, 80, 10); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#5B6270'; ctx.beginPath(); ctx.roundRect(-110, -54, 220, 34, 8); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#D7263D'; ctx.beginPath(); ctx.roundRect(-104, -22, 208, 22, 6); ctx.fill(); ctx.stroke()
+}
+
+/** Banknot; burnAt'ten sonra üstten yanarak kısalır, yanan kenarda alev */
+function drawBill(ctx: CanvasRenderingContext2D, p: Particle) {
+  const b = p.burnAt !== undefined ? clamp((p.burnAt - p.life) / Math.max(0.01, p.burnAt), 0, 1) : 0
+  const w = p.size * 1.9, h = p.size, left = h * (1 - b)
+  if (left < 1) return
+  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot)
+  const top = h / 2 - left
+  ctx.fillStyle = '#7BC47F'; ctx.strokeStyle = '#2F6B3A'; ctx.lineWidth = 2.5
+  ctx.beginPath(); ctx.rect(-w / 2, top, w, left); ctx.fill(); ctx.stroke()
+  ctx.save(); ctx.beginPath(); ctx.rect(-w / 2, top, w, left); ctx.clip()
+  ctx.fillStyle = '#5DA866'; ctx.beginPath(); ctx.ellipse(0, 0, h * 0.42, h * 0.36, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#E8F7E6'; ctx.font = `800 ${Math.round(h * 0.55)}px ${FONT_BODY}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('₺', 0, 1)
+  ctx.restore()
+  if (b > 0) {
+    ctx.fillStyle = '#2A1E18'; ctx.fillRect(-w / 2, top, w, Math.min(left, 4))
+    ctx.fillStyle = '#FF8A1F'
+    for (let i = 0; i < 4; i++) { const x = -w / 2 + (i + 0.5) * (w / 4), fh = rand(6, 14); ctx.beginPath(); ctx.ellipse(x, top - fh * 0.4, 5, fh * 0.6, 0, 0, Math.PI * 2); ctx.fill() }
+    ctx.fillStyle = '#FFE066'
+    for (let i = 0; i < 3; i++) { const x = -w / 2 + (i + 0.8) * (w / 3.4); ctx.beginPath(); ctx.ellipse(x, top - 3, 3, 6, 0, 0, Math.PI * 2); ctx.fill() }
+  }
+  ctx.restore()
+}

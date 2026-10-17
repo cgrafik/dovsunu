@@ -1,5 +1,5 @@
 // Uçtan uca test (Playwright, yerel önizleme sunucusu): node tests/e2e.cjs [masaustu|telefon]
-// Akış: açılış → fotoğraf (tek yüz) → 6 ortam → 8 araç + nakavt + ıska + ses aç/kapa → bitir → sonuç → tekrar →
+// Akış: açılış → fotoğraf (tek yüz) → 6 ortam → 10 araç + nakavt + ıska + ses aç/kapa → bitir → sonuç → tekrar →
 //       yeni fotoğraf (iki yüz → seçim) → yeni fotoğraf (yüzsüz → elle kırpma). Konsol hataları toplanır.
 const { chromium } = require(process.env.HOME + '/.cache/mh-shot/node_modules/playwright')
 const path = require('path'), fs = require('fs')
@@ -77,7 +77,7 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await noOverflow('oyun')
   const v0 = await voices()
   let last = 0
-  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü']
+  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü', 'Elektrik', 'Kredi Çek']
   for (const [i, t] of tools.entries()) {
     await p.getByRole('button', { name: new RegExp(t) }).click()
     await sleep(300); await shot(`6-arac-${i + 1}`)

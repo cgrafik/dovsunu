@@ -23,6 +23,8 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'water', label: 'Su Tabancası', short: 'Su', emoji: '💦', key: '6', points: 12, cooldown: 600, target: 'head' },
   { id: 'dizzy', label: 'Lastik Tavuk', short: 'Tavuk', emoji: '🐔', key: '7', points: 14, cooldown: 900, target: 'head' },
   { id: 'tickle', label: 'Gıdıklama Tüyü', short: 'Gıdıkla', emoji: '🪶', key: '8', points: 8, cooldown: 420, target: 'body' },
+  { id: 'shock', label: 'Elektrik', short: 'Elektrik', emoji: '⚡', key: '9', points: 16, cooldown: 1300, target: 'head' },
+  { id: 'loan', label: 'Kredi Çek', short: 'Kredi', emoji: '💸', key: '0', points: 18, cooldown: 1800, target: 'head' },
 ] as const
 
 export const toolById = (id: ToolId) => TOOLS.find(t => t.id === id)!

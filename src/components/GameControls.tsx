@@ -12,7 +12,7 @@ interface Props {
 }
 
 const TOOL_COLORS: Record<ToolId, string> = {
-  slap: '#FF9FB8', punch: '#FF7A6E', slipper: '#7FD3FF', sponge: '#FFC93C', pie: '#FFC2D4', water: '#5BC0EB', dizzy: '#FFE066', tickle: '#FFB36B',
+  slap: '#FF9FB8', punch: '#FF7A6E', slipper: '#7FD3FF', sponge: '#FFC93C', pie: '#FFC2D4', water: '#5BC0EB', dizzy: '#FFE066', tickle: '#FFB36B', shock: '#FFF06B', loan: '#8EDB9A',
 }
 
 /**

@@ -1,4 +1,5 @@
-// Ses yöneticisi — tüm efektler Web Audio ile programatik üretilir (ses dosyası yok → lisans sorunu yok).
+// Ses yöneticisi — gerçek kayıtlar (public/sfx, hepsi CC0: Kenney + BigSoundBank, bkz. public/sfx/KAYNAKLAR.md) +
+// Web Audio ile programatik üretilen sesler. Kaydı olan ses kayıttan çalar; kayıt yüklenmediyse ya da yoksa üretilir.
 // • Tarayıcı kuralı: AudioContext yalnızca kullanıcının ilk dokunuşunda açılır (unlock()).
 // • Çeşitlilik: her sesin birkaç varyantı var; aynı varyant art arda çalmaz, perde rastgele ±%8 kayar.
 // • Koruma: aynı ses 60 ms içinde tekrar çalmaz, aynı anda en çok MAX_VOICES ses.
@@ -7,10 +8,29 @@ import { pickIndexAvoiding, rand } from './math'
 export type SoundId =
   | 'click' | 'slap' | 'punch' | 'thwack' | 'bonk' | 'splat' | 'splash' | 'giggle' | 'yell' | 'cheer' | 'fail'
   | 'score' | 'combo' | 'milestone' | 'dizzy' | 'boing' | 'whoosh' | 'bell'
+  | 'zap' | 'buzz' | 'fire' | 'stamp' | 'cash'
 
 type Voice = (s: SoundManager, t: number, k: number) => number   // dönüş: sesin süresi (sn)
 
 const MAX_VOICES = 24
+const BASE = import.meta.env.BASE_URL
+
+/** Kayıtlı sesler: public/sfx/<dosya>-<n>.mp3. rate: çalma hızı (terlik, tokat kaydını daha tok çalar) */
+const SAMPLES: Partial<Record<SoundId, { file: string; n: number; rate?: number; gain?: number }>> = {
+  slap: { file: 'slap', n: 5 },
+  thwack: { file: 'slap', n: 5, rate: 0.78 },
+  punch: { file: 'punch', n: 5 },
+  bonk: { file: 'bonk', n: 4 },
+  splat: { file: 'splat', n: 2 },
+  splash: { file: 'splash', n: 4, gain: 0.8 },
+  giggle: { file: 'giggle', n: 4, gain: 0.9 },
+  cheer: { file: 'cheer', n: 2, gain: 0.7 },
+  zap: { file: 'zap', n: 4 },
+  buzz: { file: 'buzz', n: 2, gain: 0.75 },
+  fire: { file: 'fire', n: 2, gain: 0.85 },
+  stamp: { file: 'stamp', n: 3 },
+  cash: { file: 'cash', n: 3, gain: 0.8 },
+}
 const PREF_KEY = 'saplak_ses'
 
 export interface SoundSettings { muted: boolean; volume: number }
@@ -24,6 +44,8 @@ export class SoundManager {
   private lastAt = new Map<SoundId, number>()
   private voices = 0
   private listeners = new Set<() => void>()
+  private buffers = new Map<SoundId, AudioBuffer[]>()
+  private loading = false
 
   constructor() {
     let s: SoundSettings = { muted: false, volume: 0.7 }
@@ -59,6 +81,7 @@ export class SoundManager {
       this.master.connect(comp).connect(this.ctx.destination)
       this.noise = this.makeNoise()
       this.applyGain()
+      void this.loadSamples()
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume()
   }
@@ -69,12 +92,48 @@ export class SoundManager {
     this.ctx = null; this.master = null; this.noise = null
   }
 
+  /** Kayıtları arka planda indir (≈500 KB). Her ses yüklendikçe kayıttan çalmaya başlar */
+  private async loadSamples() {
+    if (this.loading || !this.ctx) return
+    this.loading = true
+    const ctx = this.ctx, cache = new Map<string, Promise<AudioBuffer | null>>()
+    const load = (url: string) => {
+      if (!cache.has(url)) cache.set(url, fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(url)))).then(b => ctx.decodeAudioData(b)).catch(() => null))
+      return cache.get(url)!
+    }
+    await Promise.all(Object.entries(SAMPLES).map(async ([id, sp]) => {
+      const list = await Promise.all(Array.from({ length: sp.n }, (_, i) => load(`${BASE}sfx/${sp.file}-${i}.mp3`)))
+      const ok = list.filter((b): b is AudioBuffer => !!b)
+      if (ok.length && this.ctx === ctx) this.buffers.set(id as SoundId, ok)
+    }))
+  }
+
+  private playSample(id: SoundId, bufs: AudioBuffer[], intensity: number): number {
+    const ctx = this.ctx!, sp = SAMPLES[id]!
+    const i = pickIndexAvoiding(bufs.length, this.lastVariant.get(id) ?? -1)
+    this.lastVariant.set(id, i)
+    const src = ctx.createBufferSource(), g = ctx.createGain()
+    src.buffer = bufs[i]
+    src.playbackRate.value = (sp.rate ?? 1) * rand(0.93, 1.07)
+    g.gain.value = (sp.gain ?? 1) * Math.min(1.15, 0.75 + 0.25 * intensity)
+    src.connect(g).connect(this.master!)
+    src.start(ctx.currentTime + 0.005)
+    return bufs[i].duration / src.playbackRate.value
+  }
+
   play(id: SoundId, intensity = 1) {
     const ctx = this.ctx
     if (!ctx || !this.master || this.settings.muted || ctx.state !== 'running') return
     const now = performance.now()
     if (now - (this.lastAt.get(id) ?? 0) < 60 || this.voices >= MAX_VOICES) return
     this.lastAt.set(id, now)
+    const bufs = this.buffers.get(id)
+    if (bufs) {
+      this.voices++
+      const dur = this.playSample(id, bufs, intensity)
+      setTimeout(() => { this.voices = Math.max(0, this.voices - 1) }, (dur + 0.1) * 1000)
+      return
+    }
     const variants = VOICES[id]
     const i = pickIndexAvoiding(variants.length, this.lastVariant.get(id) ?? -1)
     this.lastVariant.set(id, i)
@@ -315,4 +374,10 @@ const VOICES: Record<SoundId, Voice[]> = {
       return 1.4
     },
   ],
+  // Aşağıdakiler yalnızca kayıt yüklenemezse çalar
+  zap: [(s, t) => { s.tone('sawtooth', 120, 90, t, 0.35, 0.3, { vibrato: [55, 40] }); s.noiseBurst(t, 0.3, 0.4, 'highpass', 3000, 2000, 0.7); return 0.4 }],
+  buzz: [(s, t) => { s.tone('square', 60, 60, t, 0.8, 0.18); s.tone('sawtooth', 120, 118, t, 0.8, 0.12); return 0.85 }],
+  fire: [(s, t) => { s.noiseBurst(t, 0.9, 0.35, 'lowpass', 600, 2400, 0.8); return 1 }],
+  stamp: [(s, t) => { s.tone('sine', 150, 50, t, 0.18, 0.8); s.noiseBurst(t, 0.06, 0.5, 'lowpass', 1500, 300); return 0.2 }],
+  cash: [(s, t) => { for (let i = 0; i < 6; i++) s.tone('triangle', rand(2600, 3600), rand(2500, 3400), t + i * 0.05, 0.12, 0.08); return 0.45 }],
 }

@@ -251,8 +251,8 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 
 /* araç çubuğu */
 .tools-wrap { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.tools { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
-@media (max-width: 560px) { .tools { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tools { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
+@media (max-width: 560px) { .tools { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; } }
 @media (min-width: 900px) and (min-aspect-ratio: 1/1) {
   .tools { grid-template-columns: 1fr; align-content: start; }
   .tool { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 56px; padding: 6px 14px; }

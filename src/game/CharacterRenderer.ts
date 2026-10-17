@@ -81,7 +81,11 @@ export class CharacterRenderer {
   /** Gerçekçi yüz (fotoğraf yüz ağına gerilir); yüz noktaları ya da WebGL yoksa null → eski çizim */
   private warp: FaceWarp | null = null
   private warpFace: FaceAsset | null = null
-  private shape: FaceShape = { jaw: 0, blinkL: 0, blinkR: 0, smile: 0, brow: 0, frown: 0, pucker: 0 }
+  private shape: FaceShape = { jaw: 0, blinkL: 0, blinkR: 0, smile: 0, brow: 0, frown: 0, pucker: 0, frizz: 0 }
+  /** Elektrik çarpıyor (0..1): yüz parlar, saçlar dikilir */
+  zap = 0
+  /** Elektrikten kalan is (1 → 0 söner): yüz kararır, saçlar bir süre dik kalır */
+  soot = 0
 
   constructor(face: FaceAsset, look: CharacterLook) {
     this.face = face
@@ -96,6 +100,13 @@ export class CharacterRenderer {
     this.warp.impact({ x: (h.x / (FACE_W * E) + 0.5) * this.warp.texW, y: (h.y / (FACE_H * E) + 0.5) * this.warp.texH }, { x: -side, y: 0.25 }, power)
   }
 
+  /** Yüz rengi: elektrik anında yanıp sönen parlama, sonra is (kararma) */
+  private tint(): [number, number, number] {
+    if (this.zap > 0 && Math.sin(this.t * 55) > 0) return [1.9, 1.9, 1.5]
+    const k = 1 - 0.62 * this.soot
+    return [k, k * 0.97, k * 0.95]
+  }
+
   dispose() { this.warp?.dispose(); this.warp = null; this.warpFace = null }
 
   private updateWarp(dt: number) {
@@ -108,6 +119,9 @@ export class CharacterRenderer {
       const t = isBlink && blink ? 1 : target[c] ?? 0
       this.shape[c] += (t - this.shape[c]) * (1 - Math.exp(-dt * (isBlink ? 40 : 14)))
     }
+    this.soot = Math.max(0, this.soot - dt * 0.28)
+    const flicker = this.zap > 0 ? 0.75 + 0.25 * Math.sin(this.t * 70) : 0
+    this.shape.frizz = Math.max(this.zap * flicker, this.soot * 0.7)
     this.shape.jaw = this.pose.jaw.value * JAW_PX * (this.warp.texH / (FACE_H * this.face.expand))
     this.warp.update(dt)
   }
@@ -356,7 +370,7 @@ export class CharacterRenderer {
     const warp = this.warp?.ok ? this.warp : null
     if (warp) {
       // gerçekçi yüz: bükülmüş ağ ara canvas'a çizilir (çevresindeki pay da yüz ölçeğiyle yerleşir)
-      warp.render(this.shape, this.look.cartoon)
+      warp.render(this.shape, this.look.cartoon, this.tint())
       const sx = DW / warp.texW, sy = DH / warp.texH
       ctx.drawImage(warp.canvas, -DW / 2 - WARP_PAD_X * sx, -DH / 2 - WARP_PAD_TOP * sy, warp.canvas.width * sx, warp.canvas.height * sy)
     } else {

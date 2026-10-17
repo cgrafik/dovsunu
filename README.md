@@ -44,7 +44,7 @@ Ekran görüntüleri `tests/out/` klasörüne yazılır.
 | GameCanvas | `src/components/GameCanvas.tsx` | React ↔ motor köprüsü (kurulum / temizlik) |
 | — | `src/game/GameEngine.ts` | requestAnimationFrame döngüsü, girdi, bekleme süreleri, nakavt, demo |
 | AnimationManager | `src/game/AnimationManager.ts` | Araç efektleri, tepkiler, el izi / şişlik / krema izleri, parçacıklar, yazılar |
-| SoundManager | `src/game/SoundManager.ts` | Web Audio ile programatik sesler, çeşitleme, ses seviyesi |
+| SoundManager | `src/game/SoundManager.ts` | CC0 ses kayıtları (public/sfx) + yedek programatik sesler, çeşitleme, ses seviyesi |
 | ScoreManager | `src/game/ScoreManager.ts` | Skor, kombo, çarpan, eşik mesajları, 60 sn tur |
 | GameControls | `src/components/GameControls.tsx`, `Hud.tsx` | Araç çubuğu (bekleme göstergesi), skor göstergesi |
 | ResultsScreen | `src/components/ResultsScreen.tsx` | Toplam skor, en yüksek kombo, kullanılan araçlar, görüntü indirme |

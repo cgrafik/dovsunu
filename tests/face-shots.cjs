@@ -28,7 +28,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
   const sc = Math.min(box.width / 800, box.height / 1000), offY = box.height - 1000 * sc
   const head = { x: box.x + 400 * sc, y: box.y + offY + 430 * sc }
   const clip = { x: Math.max(0, head.x - 130), y: head.y - 140, width: 260, height: 290 }
-  const shot = n => p.screenshot({ path: path.join(OUT, `yuz-${n}.png`), clip })
+  // 'tam-' ile başlayan adlar tüm ekranı çeker (uçuşan paralar, yıldırım)
+  const shot = n => p.screenshot({ path: path.join(OUT, `yuz-${n}.png`), clip: n.startsWith('tam-') ? undefined : clip })
   await shot('0-normal')
   const tool = async (name, waits) => {
     await p.getByRole('button', { name: new RegExp(name) }).first().click()
@@ -41,6 +42,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
   await tool('Gıdıkla', [[500, '6-gidik'], [900, '7-gidik2']])
   await tool('Boks Eldiveni', [[200, '8-yumruk'], [500, '9-yumruk2']])
   await tool('Kremalı Pasta', [[600, '10-pasta']])
+  await tool('Elektrik', [[350, '11-elektrik'], [700, 'tam-12-elektrik2'], [1500, '13-is-duman']])
+  await tool('Kredi Çek', [[420, '14-kredi-damga'], [900, 'tam-15-paralar'], [1500, 'tam-16-yanan-paralar']])
   console.log(errors.length ? 'HATALAR:\n' + errors.join('\n') : 'konsol hatası yok')
   await b.close()
 })()

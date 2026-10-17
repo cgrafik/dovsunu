@@ -1,0 +1,22 @@
+# Ses kaynakları
+
+Bu klasördeki seslerin hepsi **CC0 (kamu malı)** kayıtlardan kesildi. Kullanmak için izin, ücret ya da isim anmak gerekmiyor.
+Sesler kırpıldı, seviyesi eşitlendi ve mono MP3'e çevrildi.
+
+| Dosya | Kaynak | Lisans |
+|---|---|---|
+| slap-* | BigSoundBank #0597 "Slaps" (Joseph Sardin) | CC0 |
+| punch-* | Kenney "Impact Sounds": impactPunch_heavy_000–004 | CC0 |
+| bonk-* | Kenney "Impact Sounds": impactSoft_heavy_000–002, impactPlank_medium_000 | CC0 |
+| splat-* | Kenney "Sci-fi Sounds": slime_000–001 | CC0 |
+| splash-* | BigSoundBank #0473 "Shots of water pistol", #0324 "Water gun #1" | CC0 |
+| giggle-* | BigSoundBank #2092, #2093, #2095, #2097 "Delirious laughter" | CC0 |
+| cheer-* | BigSoundBank #0236, #0237 "Shouts and applauses of teens" | CC0 |
+| zap-* | BigSoundBank #0134 "Electric shock" | CC0 |
+| buzz-* | BigSoundBank #0952 "Short welds" | CC0 |
+| fire-* | BigSoundBank #1340 "Gasoline fire #1", #0004 "Match #1" | CC0 |
+| stamp-* | Kenney "Impact Sounds": impactWood_heavy_000–002 | CC0 |
+| cash-* | BigSoundBank #0193 "Coins #1" | CC0 |
+
+- Kenney: https://kenney.nl/assets (CC0 1.0)
+- BigSoundBank / LaSonothèque: https://bigsoundbank.com (sayfalarda "CC0 (public domain)")

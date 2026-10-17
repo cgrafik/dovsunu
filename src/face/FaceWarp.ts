@@ -7,9 +7,9 @@ import type { FaceAsset, Vec } from '../game/types'
 import { LOOP_EYE_L, LOOP_EYE_R, LOOP_FACE_OVAL, LOOP_MOUTH, MESH_TRIANGLES } from './meshData'
 
 /** İfade kanalları. jaw piksel cinsinden (yüz görseli pikseli), diğerleri −1..1 civarı ağırlık */
-export interface FaceShape { jaw: number; blinkL: number; blinkR: number; smile: number; brow: number; frown: number; pucker: number }
+export interface FaceShape { jaw: number; blinkL: number; blinkR: number; smile: number; brow: number; frown: number; pucker: number; frizz: number }
 type Channel = keyof FaceShape
-const CHANNELS: readonly Channel[] = ['jaw', 'blinkL', 'blinkR', 'smile', 'brow', 'frown', 'pucker']
+const CHANNELS: readonly Channel[] = ['jaw', 'blinkL', 'blinkR', 'smile', 'brow', 'frown', 'pucker', 'frizz']
 
 /** Ara canvas'ta yüz görselinin çevresinde bırakılan pay (çene aşağı iner, yanaklar titrer) */
 export const WARP_PAD_X = 70
@@ -50,8 +50,8 @@ const smoothstep = (a: number, b: number, x: number) => { const t = Math.max(0, 
 
 const VS = `attribute vec2 a_pos; attribute vec2 a_uv; uniform vec2 u_size; varying vec2 v_uv;
 void main() { vec2 p = a_pos / u_size * 2.0 - 1.0; gl_Position = vec4(p.x, -p.y, 0.0, 1.0); v_uv = a_uv; }`
-const FS = `precision mediump float; uniform sampler2D u_tex; uniform vec4 u_color; varying vec2 v_uv;
-void main() { gl_FragColor = u_color.a > 0.0 ? u_color : texture2D(u_tex, v_uv); }`
+const FS = `precision mediump float; uniform sampler2D u_tex; uniform vec4 u_color; uniform vec3 u_tint; varying vec2 v_uv;
+void main() { vec4 c = u_color.a > 0.0 ? u_color : texture2D(u_tex, v_uv); gl_FragColor = vec4(min(c.rgb * u_tint, vec3(c.a)), c.a); }`
 
 export class FaceWarp {
   readonly canvas = document.createElement('canvas')
@@ -60,6 +60,7 @@ export class FaceWarp {
   readonly texH: number
   private gl: WebGLRenderingContext
   private uColor: WebGLUniformLocation
+  private uTint: WebGLUniformLocation
   private posBuf: WebGLBuffer
   private texNatural: WebGLTexture
   private texCartoon: WebGLTexture
@@ -154,6 +155,7 @@ export class FaceWarp {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('program')
     gl.useProgram(prog)
     this.uColor = gl.getUniformLocation(prog, 'u_color')!
+    this.uTint = gl.getUniformLocation(prog, 'u_tint')!
     gl.uniform2f(gl.getUniformLocation(prog, 'u_size'), this.canvas.width, this.canvas.height)
     gl.uniform1i(gl.getUniformLocation(prog, 'u_tex'), 0)
 
@@ -293,6 +295,21 @@ export class FaceWarp {
       put(m, [...EYE_UP_L, ...EYE_UP_R], 0, s * 0.02)
       this.shapes.frown = this.field(m, s * 0.25)
     }
+    // Saç dikilmesi (elektrik): yüz ovalinin dışında, kaşların üstündeki her şey (saç) dışa ve yukarı fırlar
+    {
+      const out = new Float32Array(V_MAIN * 2)
+      const browY = Math.min(...[...BROW_L, ...BROW_R].map(i => R[i * 2 + 1]))
+      const fx = (R[234 * 2] + R[454 * 2]) / 2, fy = (R[10 * 2 + 1] + R[152 * 2 + 1]) / 2
+      const faceR = Math.abs(R[454 * 2] - R[234 * 2]) / 2
+      for (let v = 0; v < V_MAIN; v++) {
+        const dx = R[v * 2] - fx, dy = R[v * 2 + 1] - fy, d = Math.hypot(dx, dy) || 1
+        const w = smoothstep(browY + s * 0.15, browY - s * 0.5, R[v * 2 + 1]) * smoothstep(faceR * 0.75, faceR * 1.4, d)
+        const spike = 0.55 + 0.45 * Math.abs(Math.sin(v * 12.9898) * 43758.5453 % 1)
+        const m = s * 0.55 * w * spike
+        out[v * 2] = (dx / d) * m; out[v * 2 + 1] = (dy / d) * m - m * 0.6
+      }
+      this.shapes.frizz = out
+    }
     // Büzme ("O" ağız): köşeler ortaya toplanır
     {
       const m = new Map<number, Vec>()
@@ -327,7 +344,8 @@ export class FaceWarp {
   }
 
   /** Ağı ifadeye göre bük ve ara canvas'a çiz */
-  render(shape: FaceShape, cartoon: boolean) {
+  /** tint: renk çarpanı (1,1,1 = olduğu gibi; > 1 elektrik parlaması, < 1 is) */
+  render(shape: FaceShape, cartoon: boolean, tint: readonly [number, number, number] = [1, 1, 1]) {
     if (this.lost) return
     const gl = this.gl, R = this.rest, J = this.jig, P = this.pos
     const active = CHANNELS.filter(c => shape[c] !== 0)
@@ -353,6 +371,7 @@ export class FaceWarp {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuf)
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, P)
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.uniform3f(this.uTint, tint[0], tint[1], tint[2])
     gl.uniform4f(this.uColor, 0.24, 0.05, 0.07, 1)
     gl.drawElements(gl.TRIANGLES, this.mouthFill.count, gl.UNSIGNED_SHORT, this.mouthFill.off * 2)
     gl.uniform4f(this.uColor, ...this.eyeColor)

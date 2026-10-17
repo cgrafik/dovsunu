@@ -35,7 +35,7 @@ export interface FaceAsset {
   cutout: boolean
 }
 
-export type ToolId = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'dizzy' | 'tickle'
+export type ToolId = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'dizzy' | 'tickle' | 'shock' | 'loan'
 
 export type SceneId = 'office' | 'ring' | 'kitchen' | 'school' | 'beach' | 'home'
 
