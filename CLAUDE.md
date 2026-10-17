@@ -1,0 +1,58 @@
+# CLAUDE.md
+
+This file guides Claude Code when working in this repository.
+
+## What this is
+
+**Şaplak Şov** is a browser arcade game. The player uploads a photo, and the face is mapped onto a cartoon character. The player picks a setting and hits the character with slapstick tools for 60 seconds to build combos.
+
+- **Language:** the UI, code comments and commit messages are in Turkish. Reply to the user in Turkish.
+- **Separate project:** this is independent of MenuHoop (`~/menuhoop`). Don't mix the two. The folder name `taraftar-arcade` is historical: the first version had a football-fan theme, which was replaced at the user's request.
+- **Content rule:** keep it cartoon slapstick only. No blood, no realistic injuries.
+- **Privacy rule:** photos are processed only in the browser. Nothing is uploaded or stored.
+
+## Stack and environment
+
+- React 19, TypeScript 6 (`erasableSyntaxOnly`, so no enums or parameter properties), Vite 8, Canvas 2D, Web Audio, MediaPipe `tasks-vision`.
+- **No backend and no paid API.**
+- The code lives in WSL. Run commands there, for example: `wsl -d Ubuntu-24.04 -u grafik_bolat -- bash -lc "cd ~/taraftar-arcade && npm run build"`.
+- Install with `npm install --legacy-peer-deps`, because npm 10.8.2 hits an "edgesOut" bug.
+  - `postinstall` runs `scripts/setup-mediapipe.sh`, which copies the wasm into `public/mediapipe/` and downloads `public/models/face_landmarker.task`.
+  - Both of those directories are gitignored.
+- Git Bash on Windows mangles `$VAR`, `$()` and quotes inside `bash -lc '...'`. Put multi-step shell or Python into a script file and run that file instead.
+
+## Commands
+
+- `npm run dev`: dev server on port 5173.
+- `npm run build`: type check plus build.
+- `npm run preview`: serves the build on port 4173.
+- `npm run lint`: runs oxlint.
+- **End-to-end test:** run `bash scripts/make-fixtures.sh` once, start `npx vite preview --host 127.0.0.1 --port 4173`, then run `bash tests/run-e2e.sh masaustu|telefon`.
+  - It uses Playwright from `~/.cache/mh-shot/node_modules`, which is shared with the MenuHoop tooling.
+  - Screenshots go to `tests/out/`.
+- **Contact sheets:** `bash tests/sheet.sh out.png a.png b.png c.png d.png` uses the ffmpeg binary in `~/menuhoop/tools/menu-visuals/ffbin/`.
+
+## Architecture
+
+- `src/game/`: canvas engine, independent of React.
+  - `GameEngine.ts`: rAF loop, input, cooldowns, knockout every 10 combo hits, demo scene cycling, idle chatter.
+  - `CharacterRenderer.ts`: spring-based pose, outfit and hat per scene, face jaw split, expressions.
+  - `AnimationManager.ts`: tool effects, decals (hand print, bump, cream, water), particles, texts, speech bubble.
+  - `scenes.ts`: the 6 scenes (office, ring, kitchen, school, beach, home). Each has a background and foreground drawing, plus outfit, hat, lines, finish banner and sign text.
+  - `SoundManager.ts`: procedural Web Audio sounds; no audio files.
+  - `ScoreManager.ts`: the single source of truth for score, combo and round.
+  - `tools.ts`: the 8 tools, on keys 1–8.
+- `src/face/`: MediaPipe detection (GPU with CPU fallback), crop, feather, cartoon filter, mascot face.
+- `src/components/`: screens.
+  - Start (with demo) → PhotoUpload/CropEditor → CharacterSetup (scene picker) → GameScreen (Hud, GameControls) → ResultsScreen.
+- World coordinates are 800×1000, bottom-anchored. Extra canvas space goes to the top on phones and to the sides on wide screens, so scenes draw over a wide area.
+
+## Working rules
+
+- Commit locally only. **No GitHub remote yet, so don't push or publish without the user's approval.**
+- The user doesn't want to run terminal commands. Run things yourself, and open files in VS Code when their input is needed.
+- **Known gaps:**
+  - Emoji show as boxes only in headless test Chromium.
+  - Face animation is overlay plus jaw split, with no mesh warp.
+  - There is no saved high score.
+  - The game hasn't been tested on a real phone yet.
