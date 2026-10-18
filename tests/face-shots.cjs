@@ -37,7 +37,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
     for (const [ms, n] of waits) { await sleep(ms - t); t = ms; await shot(n) }
     await sleep(1600)
   }
-  await tool('Tokat', [[190, '1-tokat-an'], [420, '2-tokat-sonra'], [800, '3-saskin']])
+  await tool('Tokat', [[80, '0b-irkilme'], [190, '1-tokat-an'], [420, '2-tokat-sonra'], [800, '3-saskin']])
   await tool('Tavuk', [[300, '4-tavuk'], [700, '5-tavuk2']])
   await tool('Gıdıkla', [[500, '6-gidik'], [900, '7-gidik2']])
   await tool('Boks Eldiveni', [[200, '8-yumruk'], [500, '9-yumruk2']])

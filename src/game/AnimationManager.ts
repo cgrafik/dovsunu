@@ -7,6 +7,7 @@ import { FACE_H, FACE_W } from './CharacterRenderer'
 import type { SoundId } from './SoundManager'
 import { clamp, easeInCubic, easeOutBack, easeOutCubic, lerp, pick, pickIndexAvoiding, rand } from './math'
 import { sceneById } from './scenes'
+import type { DamageKind } from './damage'
 import type { Expression, ToolId, Vec } from './types'
 
 const MAX_PARTICLES = 500
@@ -15,6 +16,8 @@ const MAX_EFFECTS = 14
 export interface AnimHooks {
   sound: (id: SoundId, k?: number) => void
   shake: (amount: number) => void
+  /** Vuruş anı: kısa donma, kamera tepmesi, telefon titreşimi (power ≈ 1 tokat) */
+  hit?: (at: Vec, power: number) => void
   /** Sahneyi coştur (0..1): kalabalık, saat, tablo… */
   excite: (amount: number) => void
 }
@@ -204,6 +207,8 @@ export class AnimationManager {
     const head = this.char.headCenter()
     const target = zone === 'head' ? at : head
     const side: 1 | -1 = at.x >= head.x ? 1 : -1
+    // el gelirken karakter gözünü sıkıp yüzünü kaçırır (vuruş anı bunu ezer)
+    if (tool !== 'tickle' && tool !== 'loan' && tool !== 'shock') this.flinch(side)
     switch (tool) {
       case 'slap': this.effects.push(this.slapSwing(target, side)); break
       case 'punch': this.effects.push(this.gloveSpring(target, side)); break
@@ -216,6 +221,47 @@ export class AnimationManager {
       case 'shock': this.effects.push(this.shockZap(side)); break
       case 'loan': this.effects.push(this.loanStamp(side)); break
     }
+  }
+
+  /** Vuruştan hemen önce irkilme: gözler sıkılır, kafa gelen elden kaçar, omuzlar kalkar */
+  private flinch(side: 1 | -1) {
+    this.setExpression('shut', 0.3, 1)
+    const p = this.char.pose
+    p.headX.impulse(-side * 260); p.headRot.impulse(-side * 2.2); p.squash.impulse(-0.6); p.brow.impulse(-3)
+  }
+
+  /** Darbe: yüz titrer ve iz kalır + vuruş hissi (beyaz parlama, şok halkası, motorun donma/tepme/titreşimi) */
+  private strike(at: Vec, side: 1 | -1, power: number, kind?: DamageKind) {
+    this.char.impact(at, side, power, kind)
+    this.char.flash = Math.min(1, 0.55 + power * 0.3)
+    this.hooks.hit?.(at, power)
+    if (this.effects.length >= MAX_EFFECTS) this.effects.shift()
+    const ang = rand(0, Math.PI)
+    const self: Effect = {
+      t: 0, dur: 0.24,
+      update: (dt) => { self.t += dt },
+      draw: (ctx) => {
+        const u = self.t / self.dur, r = 30 + easeOutCubic(u) * (90 + 60 * power)
+        ctx.save()
+        ctx.globalAlpha = (1 - u) * 0.9
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 10 * (1 - u) + 2
+        ctx.beginPath(); ctx.arc(at.x, at.y, r, 0, Math.PI * 2); ctx.stroke()
+        // ışınsal darbe çizgileri
+        ctx.lineCap = 'round'; ctx.lineWidth = 6 * (1 - u) + 1
+        for (let i = 0; i < 8; i++) {
+          const a = ang + (i / 8) * Math.PI * 2, r0 = r * 0.55, r1 = r * (0.95 + (i % 2) * 0.35)
+          ctx.beginPath(); ctx.moveTo(at.x + Math.cos(a) * r0, at.y + Math.sin(a) * r0); ctx.lineTo(at.x + Math.cos(a) * r1, at.y + Math.sin(a) * r1); ctx.stroke()
+        }
+        if (u < 0.35) {
+          const g = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, r * 0.8)
+          g.addColorStop(0, 'rgba(255,255,255,0.85)'); g.addColorStop(1, 'rgba(255,255,255,0)')
+          ctx.globalAlpha = 1 - u / 0.35; ctx.fillStyle = g
+          ctx.beginPath(); ctx.arc(at.x, at.y, r * 0.8, 0, Math.PI * 2); ctx.fill()
+        }
+        ctx.restore()
+      },
+    }
+    this.effects.push(self)
   }
 
   // Tokat: dev çizgi film eli yandan savrulur, yanakta kırmızı el izi kalır
@@ -245,7 +291,7 @@ export class AnimationManager {
   }
 
   private slapImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1, 'slap')
+    this.strike(at, side, 1, 'slap')
     const p = this.char.pose
     p.headRot.impulse(-side * 11); p.headX.impulse(-side * 950); p.jaw.impulse(6); p.lean.impulse(-side * 0.9)
     p.armL.impulse(rand(3, 6)); p.armR.impulse(rand(3, 6))
@@ -295,7 +341,7 @@ export class AnimationManager {
   }
 
   private punchImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1.3, 'punch')
+    this.strike(at, side, 1.3, 'punch')
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 1150); p.headY.impulse(-260); p.headSquash.set(0.78)
     p.lean.impulse(-side * 1.5); p.squash.set(0.9); p.jaw.impulse(9); p.armL.impulse(5); p.armR.impulse(5)
@@ -344,7 +390,7 @@ export class AnimationManager {
   }
 
   private slipperImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.9, 'slipper')
+    this.strike(at, side, 0.9, 'slipper')
     const p = this.char.pose
     p.headSquash.set(0.68); p.headY.impulse(380); p.squash.set(0.84); p.headRot.impulse(side * 3); p.jaw.impulse(7)
     const local = this.char.toHeadLocal(at)
@@ -396,7 +442,7 @@ export class AnimationManager {
   }
 
   private spongeImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1.1, 'sponge')
+    this.strike(at, side, 1.1, 'sponge')
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 700); p.headSquash.set(0.8); p.jaw.impulse(7); p.lean.impulse(-side * 1.2)
     this.setExpression('shut', 0.6, 2)
@@ -436,7 +482,7 @@ export class AnimationManager {
   }
 
   private pieImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.7, 'pie')
+    this.strike(at, side, 0.7, 'pie')
     const p = this.char.pose
     p.headSquash.set(0.72); p.headRot.impulse(-side * 4); p.headY.impulse(-260); p.lean.impulse(-side * 0.6)
     const local = this.char.toHeadLocal(at)
@@ -508,7 +554,7 @@ export class AnimationManager {
   }
 
   private waterImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.3, 'water')
+    this.strike(at, side, 0.3, 'water')
     const p = this.char.pose
     p.headRot.impulse(-side * 3); p.headSquash.set(0.88); p.jaw.impulse(5)
     const local = this.char.toHeadLocal(at)
@@ -604,7 +650,7 @@ export class AnimationManager {
   }
 
   private dizzyImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.8, 'bonk')
+    this.strike(at, side, 0.8, 'bonk')
     const p = this.char.pose
     p.headSquash.set(0.74); p.squash.set(0.86); p.headRot.impulse(side * 4); p.wobble = this.reduced ? 0.35 : 1
     this.stars = { t: 0, life: 2.7 }
@@ -665,7 +711,7 @@ export class AnimationManager {
   private shockImpact(side: 1 | -1) {
     const p = this.char.pose, h = this.char.headCenter()
     p.armL.impulse(10); p.armR.impulse(10); p.jaw.impulse(11); p.headY.impulse(-320); p.squash.set(1.12)
-    this.char.impact(h, side, 0.6, 'shock')
+    this.strike(h, side, 0.6, 'shock')
     this.char.soot = 1
     this.char.blush = 0
     this.setExpression('shock', 1.05, 3)
@@ -711,7 +757,7 @@ export class AnimationManager {
   private loanImpact(at: Vec, side: 1 | -1) {
     const p = this.char.pose
     p.headY.impulse(460); p.headSquash.set(0.78); p.squash.set(0.9); p.jaw.impulse(6)
-    this.char.impact(at, side, 0.7, 'stamp')
+    this.strike(at, side, 0.7, 'stamp')
     this.addDecal({ kind: 'stamp', t: 0, life: 4.5, blobs: [], x: rand(-10, 10), y: -FACE_H * 0.17, rot: rand(-0.18, 0.08) })
     this.hooks.sound('stamp')
     this.setExpression('shock', 0.9, 2)

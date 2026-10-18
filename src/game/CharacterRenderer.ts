@@ -79,6 +79,8 @@ export class CharacterRenderer {
   /** Pervaneli şapkanın dönüş açısı (kafa sarsıldıkça hızlanır) */
   private spin = 0
   blush = 0
+  /** Darbe anı beyaz parlaması (1 → 0 hızla söner) */
+  flash = 0
   /** Dünya → kafa yerel dönüşümü (efektler bunu kullanır) */
   headMatrix = new DOMMatrix()
   bodyMatrix = new DOMMatrix()
@@ -136,6 +138,7 @@ export class CharacterRenderer {
   /** Yüz rengi: elektrik anında yanıp sönen parlama, sonra is (kararma) */
   private tint(): [number, number, number] {
     if (this.zap > 0 && Math.sin(this.t * 55) > 0) return [1.9, 1.9, 1.5]
+    if (this.flash > 0.02) { const f = 1 + this.flash * 0.9; return [f, f, f] }
     const k = 1 - 0.62 * this.soot
     return [k, k * 0.97, k * 0.95]
   }
@@ -170,6 +173,7 @@ export class CharacterRenderer {
     this.t += dt
     this.pose.update(dt)
     this.blush = Math.max(0, this.blush - dt * 0.4)
+    this.flash = Math.max(0, this.flash - dt * 9)
     // göz kırpma: 2,5–5 sn'de bir, 0,13 sn
     this.blinkAt -= dt
     if (this.blinkAt <= 0) { this.blinkT = 0.13; this.blinkAt = 2.5 + Math.random() * 2.5 }

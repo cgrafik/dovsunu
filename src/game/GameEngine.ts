@@ -39,6 +39,9 @@ export class GameEngine {
   private offX = 0
   private offY = 0
   private shakeAmt = 0
+  /** Vuruş hissi: kısa donma süresi (sn) ve kamera tepmesi (yakınlaşma) */
+  private hitStop = 0
+  private zoom = 0
   private excite = 0
   private t = 0
   private selected: ToolId = 'slap'
@@ -67,6 +70,12 @@ export class GameEngine {
     this.anim = new AnimationManager(this.char, {
       sound: (id, k) => { if (opts.mode !== 'demo') opts.sound.play(this.voiced(id), k) },
       shake: (a) => { this.shakeAmt = Math.min(22, this.shakeAmt + a) },
+      hit: (_at, power) => {
+        if (opts.reducedMotion) return
+        this.hitStop = Math.max(this.hitStop, Math.min(0.11, 0.045 + power * 0.04))
+        this.zoom = Math.min(0.09, this.zoom + 0.03 + power * 0.025)
+        if (opts.mode === 'play') navigator.vibrate?.(Math.round(18 + power * 22))
+      },
       excite: (a) => { this.excite = Math.min(1, this.excite + a) },
     }, opts.reducedMotion)
     this.ro = new ResizeObserver(() => this.resize())
@@ -223,7 +232,11 @@ export class GameEngine {
     const dt = Math.min(0.05, Math.max(0, (ts - this.last) / 1000))
     this.last = ts
     this.t += dt
-    this.update(dt)
+    // donma anında oyun neredeyse durur (çizim sürer): vuruş "oturur"
+    const frozen = this.hitStop > 0
+    this.hitStop = Math.max(0, this.hitStop - dt)
+    this.update(frozen ? dt * 0.04 : dt)
+    this.zoom *= Math.exp(-dt * 9)
     this.draw()
     this.raf = requestAnimationFrame(this.frame)
   }
@@ -305,7 +318,9 @@ export class GameEngine {
 
     const sx = this.shakeAmt > 0.1 ? rand(-1, 1) * this.shakeAmt * this.scale : 0
     const sy = this.shakeAmt > 0.1 ? rand(-1, 1) * this.shakeAmt * this.scale : 0
-    const screen = new DOMMatrix([this.scale, 0, 0, this.scale, this.offX + sx, this.offY + sy])
+    // kamera tepmesi: vurulan kafaya doğru kısa yakınlaşma
+    const head = this.char.headCenter(), z = this.zoom, S = this.scale * (1 + z)
+    const screen = new DOMMatrix([S, 0, 0, S, this.offX + sx - head.x * this.scale * z, this.offY + sy - head.y * this.scale * z])
     ctx.setTransform(screen)
 
     const state = { t: this.t, excite: this.opts.reducedMotion ? this.excite * 0.3 : this.excite, name: look.name, color: look.color }
