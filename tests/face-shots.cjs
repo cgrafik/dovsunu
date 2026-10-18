@@ -25,9 +25,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
   const canvas = p.locator('canvas').first()
   const box = await canvas.boundingBox()
   // kafa: dünya (400, ~437) civarı; canvas alta yaslı 800×1000 dünya
-  const sc = Math.min(box.width / 800, box.height / 1000), offY = box.height - 1000 * sc
-  const head = { x: box.x + 400 * sc, y: box.y + offY + 430 * sc }
-  const clip = { x: Math.max(0, head.x - 130), y: head.y - 140, width: 260, height: 290 }
+  const sc = (box.height > box.width * 1.05 ? Math.min(box.height / 1000, box.width / (800 * 0.74)) : Math.min(box.width / 800, box.height / 1000)), offY = box.height - 1000 * sc
+  const head = { x: box.x + box.width / 2, y: box.y + offY + 430 * sc }
+  const clip = { x: Math.max(0, head.x - 270 * sc), y: Math.max(0, head.y - 290 * sc), width: Math.min(box.width, 540 * sc), height: 600 * sc }
   // 'tam-' ile başlayan adlar tüm ekranı çeker (uçuşan paralar, yıldırım)
   const shot = n => p.screenshot({ path: path.join(OUT, `yuz-${n}.png`), clip: n.startsWith('tam-') ? undefined : clip })
   await shot('0-normal')

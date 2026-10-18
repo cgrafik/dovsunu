@@ -4,7 +4,7 @@
 import { seeded } from './math'
 import type { FaceFeatures, Vec } from './types'
 
-export type DamageKind = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'bonk' | 'shock' | 'stamp'
+export type DamageKind = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'bonk' | 'shock' | 'stamp' | 'tape'
 
 interface Mark { x: number; y: number; hits: number; hard: number; seed: number }
 interface Hand { x: number; y: number; rot: number; flip: number }
@@ -17,6 +17,11 @@ export class FaceDamage {
   private stamps: { x: number; y: number; rot: number }[] = []
   private bandages: { x: number; y: number; rot: number }[] = []
   private total = 0
+  /** Kuaför şakası: saç boyası rengi (yoksa null) */
+  private dye: string | null = null
+
+  /** Saçı boya (tur boyunca kalır) */
+  setDye(color: string) { this.dye = color }
   /** Göz bebekleri arası mesafe (piksel): tüm iz boyutları buna göre */
   private s: number
   private eyeL: Vec
@@ -43,6 +48,7 @@ export class FaceDamage {
       case 'punch': at = { x: cheek.x + side * s * 0.05, y: cheek.y + s * 0.12 }; hard = 1; break
       case 'sponge': case 'bonk': at = brow; hard = 1; break
       case 'shock': for (let i = 0; i < 3; i++) this.soot.push({ x: brow.x + r(1.6), y: brow.y + s * 0.6 + r(1.2), r: s * (0.18 + Math.random() * 0.2) }); if (this.soot.length > 12) this.soot.splice(0, 3); break
+      case 'tape': at = { x: this.mouth.x, y: this.mouth.y + s * 0.05 }; break
       case 'stamp': this.stamps.push({ x: brow.x + r(0.2), y: brow.y + s * 0.05, rot: (Math.random() - 0.6) * 0.4 }); if (this.stamps.length > 2) this.stamps.shift(); break
       default: return false   // pasta, su: iz bırakmaz
     }
@@ -66,6 +72,19 @@ export class FaceDamage {
   /** İzleri yüz görselinin üstüne çiz (yalnızca yüzün dolu piksellerine: source-atop) */
   paint(ctx: CanvasRenderingContext2D) {
     const s = this.s
+    if (this.dye) {
+      // saç bölgesi: kaşların epey üstü (alın üstü + saç); renk "color" karışımıyla verilir, ışık-gölge korunur
+      const W = ctx.canvas.width, Hh = ctx.canvas.height, top = Math.min(this.eyeL.y, this.eyeR.y) - s * 0.62
+      const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = Hh
+      const t = tmp.getContext('2d')!
+      t.drawImage(ctx.canvas, 0, 0)
+      t.globalCompositeOperation = 'source-in'
+      const g = t.createLinearGradient(0, top + s * 0.15, 0, top - s * 0.2)
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, this.dye)
+      t.fillStyle = g; t.fillRect(0, 0, W, Hh)
+      ctx.save(); ctx.globalCompositeOperation = 'color'; ctx.globalAlpha = 0.85; ctx.drawImage(tmp, 0, 0); ctx.restore()
+      tmp.width = 0
+    }
     ctx.save()
     ctx.globalCompositeOperation = 'source-atop'
     for (const m of this.marks) {

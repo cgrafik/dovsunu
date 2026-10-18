@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameEngine } from '../game/GameEngine'
 import type { ScoreManager, ScoreSnapshot } from '../game/ScoreManager'
 import type { SoundManager } from '../game/SoundManager'
@@ -17,11 +17,16 @@ interface Props {
   reducedMotion: boolean
   onFinish: (r: { image: string; stats: ScoreSnapshot }) => void
   onExit: () => void
+  /** Kadın karakterde "kadına şiddete hayır" bir kez gösterildi: sert araçlar gizlenir */
+  hardHidden: boolean
+  onViolence: () => void
 }
 
-export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, onExit }: Props) {
+export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, onExit, hardHidden, onViolence }: Props) {
+  const hideHard = hardHidden && look.body === 'f'
+  const visible = useMemo(() => TOOLS.filter(t => !hideHard || t.soft), [hideHard])
   const [engine, setEngine] = useState<GameEngine | null>(null)
-  const [selected, setSelected] = useState<ToolId>('slap')
+  const [selected, setSelected] = useState<ToolId>(hardHidden && look.body === 'f' ? 'pie' : 'slap')
   const [round, setRound] = useState(0)
   const engineRef = useRef<GameEngine | null>(null)
   const finishedRef = useRef(false)
@@ -29,6 +34,8 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
 
   const onEngine = useCallback((e: GameEngine | null) => { engineRef.current = e; setEngine(e) }, [])
   useEffect(() => { engine?.setSelected(selected) }, [engine, selected])
+  // sert araçlar kalkınca dokunuş da hafif araçla olsun
+  useEffect(() => { if (hideHard && !TOOLS.find(t => t.id === selected)?.soft) setSelected('pie') }, [hideHard, selected])
   useEffect(() => { score.reset() }, [score])
 
   const fire = useCallback((t: ToolId) => { sound.unlock(); engineRef.current?.useTool(t) }, [sound])
@@ -45,13 +52,13 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || (e.target as HTMLElement)?.closest('input, textarea, [role="dialog"]')) return
-      const t = TOOLS.find(x => x.key === e.key)
+      const t = visible.find(x => x.key === e.key)
       if (t) { e.preventDefault(); setSelected(t.id); fire(t.id); return }
       if (e.key === ' ') { e.preventDefault(); fire(selected) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [fire, selected])
+  }, [fire, selected, visible])
 
   const restart = () => {
     finishedRef.current = false
@@ -64,7 +71,7 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
       <div className="game-layout">
         <div className="game-stage">
           <GameCanvas key={round} face={face} look={look} mode="play" sound={sound} score={score} reducedMotion={reducedMotion}
-            onEngine={onEngine} onFinish={complete}
+            onEngine={onEngine} onFinish={complete} onViolence={onViolence}
             label="Oyun alanı: seçili aracı kullanmak için karaktere dokunun" />
           <div className="hud">
             <div className="hud-group"><Hud score={score} engine={engine} /></div>
@@ -75,8 +82,8 @@ export function GameScreen({ face, look, sound, score, reducedMotion, onFinish, 
           {!snap.started && <div className="hint-start">👆 Karaktere dokun ya da bir araç seç!</div>}
         </div>
         <div className="tools-wrap">
-          <GameControls engine={engine} selected={selected} disabled={snap.finished} onSelect={setSelected} onFire={fire} />
-          <div style={{ display: 'flex', gap: 8 }}>
+          <GameControls engine={engine} tools={visible} selected={selected} disabled={snap.finished} onSelect={setSelected} onFire={fire} />
+          <div className="game-actions">
             <button className="btn small cream" style={{ flex: 1 }} onClick={restart} aria-label="Turu sıfırla">↺ Sıfırla</button>
             <button className="btn small" style={{ flex: 1 }} onClick={complete} disabled={!snap.started || snap.finished}>🏁 Bitir</button>
             <button className="btn small ghost" onClick={onExit} aria-label="Ana menü">Menü</button>

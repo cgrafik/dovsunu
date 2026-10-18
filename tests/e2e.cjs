@@ -78,7 +78,7 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await noOverflow('oyun')
   const v0 = await voices()
   let last = 0
-  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü', 'Elektrik', 'Kredi Çek', 'Örümcek Şakası', 'Konfeti Topu', 'Un Torbası']
+  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü', 'Elektrik', 'Kredi Çek', 'Örümcek Şakası', 'Konfeti Topu', 'Un Torbası', 'Ağzını Bantla', 'Kuaför Şakası']
   for (const [i, t] of tools.entries()) {
     await p.getByRole('button', { name: new RegExp('^' + t) }).click()
     await sleep(300); await shot(`6-arac-${i + 1}`)
@@ -95,7 +95,7 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await p.keyboard.press('1'); await sleep(450)
   const sKey = await scoreText(); ok(sKey > last, `klavye 1: tokat (${last} → ${sKey})`); last = sKey
   // kafanın ekran konumu: dünya 800×1000, genişliğe/yüksekliğe sığdırılır ve alta yaslanır; kafa ≈ dünya (400, 440)
-  const sc = Math.min(box.width / 800, box.height / 1000)
+  const sc = (box.height > box.width * 1.05 ? Math.min(box.height / 1000, box.width / (800 * 0.74)) : Math.min(box.width / 800, box.height / 1000))
   const headX = box.x + (box.width - 800 * sc) / 2 + 400 * sc, headY = box.y + (box.height - 1000 * sc) + 440 * sc
   await p.mouse.click(headX, headY); await sleep(420)
   await shot('6-nakavt')

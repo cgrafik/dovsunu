@@ -21,6 +21,8 @@ export interface EngineOptions {
   mode: EngineMode
   reducedMotion: boolean
   onFinish?: () => void
+  /** Kadın karaktere sert araç denendi (arayüz sert araçları kaldırır) */
+  onViolence?: () => void
 }
 
 /** Kombo bu sayının katına ulaşınca karakter nakavt olur */
@@ -124,6 +126,7 @@ export class GameEngine {
     this.opts.score?.miss()
     this.prevMult = 1
     this.anim.noViolence()
+    this.opts.onViolence?.()
     if (this.opts.mode !== 'demo') {
       this.opts.sound.play('boo')
       setTimeout(() => this.opts.sound.play('whistle'), 250)
@@ -227,10 +230,12 @@ export class GameEngine {
     this.dpr = Math.min(2, window.devicePixelRatio || 1)
     const w = Math.max(1, Math.round(r.width * this.dpr)), h = Math.max(1, Math.round(r.height * this.dpr))
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h }
-    this.scale = Math.min(w / WORLD_W, h / WORLD_H)
+    // Dikey ekranda (telefon) sahne yüksekliğe göre ölçeklenir: karakter büyür, kenarlardan en çok %26 kırpılır
+    this.scale = h > w * 1.05 ? Math.min(h / WORLD_H, w / (WORLD_W * 0.74)) : Math.min(w / WORLD_W, h / WORLD_H)
     this.offX = (w - WORLD_W * this.scale) / 2
     // Dikey fazlalık (telefon) üste verilir: karakter ve öndeki eşya alta oturur, ortamın üst kısmı uzar
     this.offY = h - WORLD_H * this.scale
+    this.anim.view = { x0: Math.max(0, -this.offX / this.scale), x1: Math.min(WORLD_W, (w - this.offX) / this.scale) }
   }
 
   // ── Döngü ────────────────────────────────────────────────────────────────────
@@ -255,7 +260,7 @@ export class GameEngine {
     const options = list.length > 1 ? list.filter(l => l !== last) : list
     const text = pick(options)
     this.lastTaunt.set(kind, text)
-    this.anim.showBubble(text)
+    this.anim.showBubble(this.char.taped > 0 ? this.anim.muffle() : text)
     this.talkFor = Math.min(1.6, 0.35 + text.length * 0.035)
   }
 
@@ -265,7 +270,7 @@ export class GameEngine {
     if (this.talkFor > 0) {
       this.talkFor -= dt
       this.talkFlap -= dt
-      if (this.talkFlap <= 0) { this.char.pose.jaw.impulse(rand(4, 7)); this.talkFlap = rand(0.1, 0.16) }
+      if (this.talkFlap <= 0) { if (this.char.taped <= 0) this.char.pose.jaw.impulse(rand(4, 7)); this.talkFlap = rand(0.1, 0.16) }
     }
     this.anim.update(dt)
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 60)

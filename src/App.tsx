@@ -26,6 +26,8 @@ export default function App() {
   const [how, setHow] = useState(false)
   const [face, setFace] = useState<FaceAsset | null>(null)
   const [look, setLook] = useState<CharacterLook>(DEFAULT_LOOK)
+  // kadın karakterde sert araç bir kez denendi mi (sonrası: sert araçlar gizli)
+  const [hardHidden, setHardHidden] = useState(false)
   // meydan okuma linki: ?hedef=1234 (arkadaşın skoru)
   const [target] = useState(() => { const v = Number(new URLSearchParams(location.search).get('hedef')); return Number.isFinite(v) && v > 0 ? Math.min(Math.round(v), 999999) : 0 })
   const [result, setResult] = useState<{ image: string; stats: ScoreSnapshot; unlocked: ToolDef[] } | null>(null)
@@ -65,6 +67,7 @@ export default function App() {
       )}
       {screen === 'game' && face && (
         <GameScreen face={face} look={look} sound={sound} score={score} reducedMotion={reducedMotion}
+          hardHidden={hardHidden} onViolence={() => setHardHidden(true)}
           onFinish={r => { setResult({ ...r, unlocked: addPoints(r.stats.score) }); setScreen('results') }} onExit={() => setScreen('setup')} />
       )}
       {screen === 'results' && result && (

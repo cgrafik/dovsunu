@@ -13,6 +13,7 @@ interface Props {
   reducedMotion: boolean
   onEngine?: (e: GameEngine | null) => void
   onFinish?: () => void
+  onViolence?: () => void
   label: string
 }
 
@@ -20,16 +21,17 @@ interface Props {
  * Canvas + oyun motoru köprüsü. Motor yalnızca yüz/mod değişince yeniden kurulur; görünüm (ortam, kıyafet rengi vb.)
  * motoru yeniden başlatmadan iletilir. Bileşen kalkınca motor, döngü ve dinleyiciler temizlenir.
  */
-export function GameCanvas({ face, look, mode, sound, score, reducedMotion, onEngine, onFinish, label }: Props) {
+export function GameCanvas({ face, look, mode, sound, score, reducedMotion, onEngine, onFinish, onViolence, label }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const engine = useRef<GameEngine | null>(null)
   const finishRef = useRef(onFinish)
   const engineCb = useRef(onEngine)
-  useEffect(() => { finishRef.current = onFinish; engineCb.current = onEngine })
+  const violenceRef = useRef(onViolence)
+  useEffect(() => { finishRef.current = onFinish; engineCb.current = onEngine; violenceRef.current = onViolence })
 
   useEffect(() => {
     const e = new GameEngine(ref.current!, {
-      face, look, sound, score, mode, reducedMotion, onFinish: () => finishRef.current?.(),
+      face, look, sound, score, mode, reducedMotion, onFinish: () => finishRef.current?.(), onViolence: () => violenceRef.current?.(),
     })
     engine.current = e
     e.start()

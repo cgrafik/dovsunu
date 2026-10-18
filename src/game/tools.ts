@@ -32,6 +32,8 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'spider', label: 'Örümcek Şakası', short: 'Örümcek', emoji: '🕷️', key: 'a', points: 11, cooldown: 1200, target: 'head', soft: true },
   { id: 'confetti', label: 'Konfeti Topu', short: 'Konfeti', emoji: '🎉', key: 's', points: 10, cooldown: 900, target: 'head', soft: true },
   { id: 'flour', label: 'Un Torbası', short: 'Un', emoji: '🌾', key: 'd', points: 13, cooldown: 1100, target: 'head', soft: true },
+  { id: 'salon', label: 'Kuaför Şakası', short: 'Kuaför', emoji: '💇', key: 'g', points: 12, cooldown: 1600, target: 'head', soft: true },
+  { id: 'tape', label: 'Ağzını Bantla', short: 'Bant', emoji: '🩹', key: 'f', points: 12, cooldown: 4500, target: 'head' },
   { id: 'pillow', label: 'Yastık', short: 'Yastık', emoji: '🛏️', key: 'q', points: 9, cooldown: 420, target: 'head', soft: true, unlockAt: 600 },
   { id: 'fish', label: 'Balık Tokadı', short: 'Balık', emoji: '🐟', key: 'w', points: 16, cooldown: 520, target: 'head', unlockAt: 1500 },
   { id: 'goldslipper', label: 'Altın Terlik', short: 'Altın', emoji: '👑', key: 'e', points: 30, cooldown: 900, target: 'head', unlockAt: 3000 },

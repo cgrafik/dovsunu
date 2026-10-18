@@ -33,7 +33,7 @@ interface Particle {
 interface Effect { t: number; dur: number; update(dt: number): void; draw(ctx: CanvasRenderingContext2D): void }
 
 interface Decal {
-  kind: 'cream' | 'wet' | 'hand' | 'bump' | 'stamp' | 'confetti'
+  kind: 'cream' | 'wet' | 'hand' | 'bump' | 'stamp' | 'confetti' | 'tape'
   t: number; life: number
   blobs: { x: number; y: number; r: number; drip: number; speed: number }[]
   /** el izi / şişlik: kafa yerel konum + açı */
@@ -57,6 +57,8 @@ const BUBBLES: Record<ToolId, readonly string[]> = {
   tickle: ['Hahaha dur!', 'Gıdıklanıyorum!', 'Yapmaa!', 'Hihihi!', 'Orası olmaz!', 'Hahaha, tamam tamam!', 'Nefes alamıyorum!', 'Kuş tüyü haksızlık!', 'Hahaha yeter!'],
   shock: ['Saçlarım!', 'Fişi çekin!', 'Bzzt bzzt!', 'Elektrik faturasını merak ettim!', 'Telefonum şarj oldu!', 'Wi-Fi şifresi aklıma geldi!', 'Ampul gibi yandım!', 'Sigorta attı mı?!', 'Rezistans mıyım ben?!', 'Saçlarım fön çekti!', 'Elektrik şirketine şikâyet!', '220 volt sevgi!'],
   loan: ['Benim imzam yok!', 'Ne kredisi?!', 'Faizi ne kadar?!', 'Paralarım yanıyor!', 'Kefilim kim?!', 'Taksit sayısı kaç?!', 'Ben sadece bakıyordum!', 'Faiz mi fasulye mi?!'],
+  salon: ['Saçlarım!', 'Bu renk bana gitmez!', 'Punkçı mı oldum?!', 'Berberim görse ağlar!', 'Bu modeli kim istedi?!'],
+  tape: ['Mmmf!', 'Hmmf mmf!', 'Mmm-mmm!', 'Mmmf mmmf mmf!'],
   spider: ['ÖRÜMCEEEK!', 'Al şunu üstümden!', 'Plastik mi o?!', 'Anneee!', 'Sekiz bacak! Sekiz!', 'Ben örümcekten korkmam… AAAA!'],
   confetti: ['Sürpriz parti mi?!', 'Doğum günüm değil ki!', 'Ağzıma konfeti kaçtı!', 'Yaşasın… galiba?', 'Pasta da var mı?'],
   flour: ['Hapşuu!', 'Börek mi yapacaksın?!', 'Hayalet gibi oldum!', 'Una bulandım!', 'Kek mi olacağım şimdi?!'],
@@ -74,10 +76,11 @@ const ROLE_LINES: Record<SceneId, readonly string[]> = {
   home: ['Kumanda nerede?!', 'Dizim kaçıyor!', 'Annem çay demledi, git!', 'Kanepe benim!', 'Misafir gelecek, rezil ettin!', 'Pijamamla dövülmem!', 'Uykum vardı!'],
 }
 /** Karşılık: karakter oyuncuya laf yetiştirir */
-const RETORTS = ['Senin sinirin şaka mı?', 'Ben de bu oyunu yükleyip intikamımı alacağım!', 'Sıra bende, bekle sen!', 'Bunu unutmayacağım!', 'Senin fotoğrafını ben de yüklerim!', 'Bunun hesabını vereceksin!', 'Rövanş istiyorum!'] as const
+const RETORTS = ['Bu oyunda konuşarak anlaşma yok mu?!', 'Senin sinirin şaka mı?', 'Ben de bu oyunu yükleyip intikamımı alacağım!', 'Sıra bende, bekle sen!', 'Bunu unutmayacağım!', 'Senin fotoğrafını ben de yüklerim!', 'Bunun hesabını vereceksin!', 'Rövanş istiyorum!'] as const
 /** Kadın karaktere özel tepkiler (yalnızca hafif şakalar ona yapılabilir) */
 const FEMALE: Partial<Record<ToolId, readonly string[]>> = {
   pie: ['Makyajım bozulmadı di mi?', 'Fondötenim gitti!', 'Kirpiklerime krema kaçtı!', 'Bu pasta glütensiz mi bari?', 'Saçımı yeni yaptırmıştım!'],
+  salon: ['Bu kadar da olmaz ama!', 'Ben bu rengi istemedim!', 'Kuaförüm görse bayılır!', 'Fönüm mahvoldu!', 'Saç bakımım üç saat sürdü!'],
   spider: ['Örümcek! Saçıma girmesin!', 'Ojem bozulacak, uzak dur!'],
   confetti: ['Fotoğraf çekin, çok tatlı oldum!', 'Bu konfeti kıyafetime yakıştı!'],
   flour: ['Pudram bu kadar beyaz değildi!', 'Makyajım un oldu!'],
@@ -100,6 +103,8 @@ const TEXTS: Record<ToolId, readonly string[]> = {
   tickle: ['KIKIR!', 'HİHİ!', 'GIDI GIDI!'],
   shock: ['BZZZT!', 'ZIRRT!', 'VIZZT!'],
   loan: ['ONAYLANDI!', 'DAMGA!', 'ÇAT!'],
+  salon: ['FÖÖN!', 'FISS!', 'TADAA!'],
+  tape: ['CIRT!', 'YAPIŞ!', 'ŞLAP!'],
   spider: ['AAAA!', 'İİİİ!', 'KAÇ!'],
   confetti: ['PATT!', 'SÜRPRİZ!', 'YAŞASIN!'],
   flour: ['PUFF!', 'POF!', 'HAPŞUU!'],
@@ -108,7 +113,7 @@ const TEXTS: Record<ToolId, readonly string[]> = {
   goldslipper: ['ALTIN!', 'TIRIN!', 'ŞAKK!'],
 }
 const TEXT_COLORS: Record<ToolId, string> = {
-  slap: '#FF8FB1', punch: '#FF4B3E', slipper: '#5BC0EB', sponge: '#FFC93C', pie: '#FFB3C7', water: '#7FD3FF', dizzy: '#FFE066', tickle: '#FF9F43', shock: '#FFF06B', loan: '#7BE495', spider: '#E0D7FF', confetti: '#FF7AC8', flour: '#FFFFFF', pillow: '#F4F0FF', fish: '#7FD3FF', goldslipper: '#FFD54A',
+  slap: '#FF8FB1', punch: '#FF4B3E', slipper: '#5BC0EB', sponge: '#FFC93C', pie: '#FFB3C7', water: '#7FD3FF', dizzy: '#FFE066', tickle: '#FF9F43', shock: '#FFF06B', loan: '#7BE495', salon: '#FF8FD0', tape: '#D9D9D9', spider: '#E0D7FF', confetti: '#FF7AC8', flour: '#FFFFFF', pillow: '#F4F0FF', fish: '#7FD3FF', goldslipper: '#FFD54A',
 }
 const CONFETTI = ['#FFC93C', '#FF4B3E', '#5BC0EB', '#7BE495', '#FFFFFF', '#B98CFF']
 
@@ -127,6 +132,8 @@ export class AnimationManager {
   private exprPrio = 0
   private lastLine = -1
   private lastBubble = new Map<ToolId, number>()
+  /** Ekranda görünen dünya genişliği (telefonda kenarlar kırpılır): afiş ve balon buna sığar */
+  view = { x0: 0, x1: 800 }
   private lastBeg = -1
   private lastRetort = -1
   private lastRole = -1
@@ -188,6 +195,7 @@ export class AnimationManager {
 
   say(tool: ToolId, chance = 1) {
     if (Math.random() > chance) return
+    if (this.char.taped > 0) { this.bubble = { text: this.muffle(), t: 0, life: 1.4 }; return }
     if (Math.random() < 0.18) { this.sayLine(); return }
     if (Math.random() < 0.3) {
       const list = ROLE_LINES[this.char.look.scene]
@@ -219,6 +227,7 @@ export class AnimationManager {
 
   /** Ortama özgü laf (boşta beklerken de söylenir) */
   sayLine() {
+    if (this.char.taped > 0) { this.bubble = { text: this.muffle(), t: 0, life: 1.4 }; return }
     const lines = sceneById(this.char.look.scene).lines
     this.lastLine = pickIndexAvoiding(lines.length, this.lastLine)
     this.bubble = { text: lines[this.lastLine], t: 0, life: 2.2 }
@@ -271,7 +280,7 @@ export class AnimationManager {
     const target = zone === 'head' ? at : head
     const side: 1 | -1 = at.x >= head.x ? 1 : -1
     // el gelirken karakter gözünü sıkıp yüzünü kaçırır (vuruş anı bunu ezer)
-    if (!['tickle', 'loan', 'shock', 'spider', 'confetti'].includes(tool)) this.flinch(side)
+    if (!['tickle', 'loan', 'shock', 'spider', 'confetti', 'salon'].includes(tool)) this.flinch(side)
     switch (tool) {
       case 'slap': this.effects.push(this.slapSwing(target, side)); break
       case 'punch': this.effects.push(this.gloveSpring(target, side)); break
@@ -284,6 +293,8 @@ export class AnimationManager {
       case 'shock': this.effects.push(this.shockZap(side)); break
       case 'pillow': this.effects.push(this.spongeSwing(target, side, true)); break
       case 'spider': this.effects.push(this.spiderDrop(side)); break
+      case 'tape': this.effects.push(this.tapeMouth(side)); break
+      case 'salon': this.effects.push(this.salonPrank(side)); break
       case 'confetti': this.effects.push(this.confettiCannon(target, side)); break
       case 'flour': this.effects.push(this.flourSack(target, side)); break
       case 'fish': this.effects.push(this.slapSwing(target, side, true)); break
@@ -838,6 +849,10 @@ export class AnimationManager {
     this.shake(7)
     // her seferinde farklı bir senaryo (aynısı art arda gelmez)
     this.lastLoan = pickIndexAvoiding(5, this.lastLoan)
+    // her senaryoda aynı sıra: önce imza inkârı, sonra senaryo, sonra korkulu sorular, en sonda "icralık oldum"
+    this.schedule(0.25, () => this.speak(['Benim imzam yok ki?!', 'Ben imza atmadım ki!', 'İmza benim değil!'], 1.4))
+    this.schedule(2.6, () => this.speak(['Kaç faizle çektin?!', 'Kaç taksit bu?!', 'Kefil kim gösterildi?!', 'Benim adıma mı çektin?!', 'Ben başvursam kredi onaylanmaz…'], 1.8))
+    this.schedule(4.3, () => this.speak(['Eyvah, icralık olmuşum!', 'Eyvah, kara listeye girdim!', 'Haciz kapıda mı?!'], 2))
     switch (this.lastLoan) {
       case 0: this.loanBurn(at, debt); break
       case 1: this.loanPhone(at, side, debt); break
@@ -879,7 +894,7 @@ export class AnimationManager {
       }
     })
     this.schedule(0.7, () => this.hooks.sound('fire'))
-    this.schedule(0.5, () => this.speak(['Paralarım yanıyor!', 'Daha ilk taksit bile ödenmedi!', 'Kredi kartım da mı?!']))
+    this.schedule(1.5, () => this.speak(['Paralarım yanıyor!', 'Daha ilk taksit bile ödenmedi!', 'Kredi kartım da mı?!']))
     this.cry(1.0)
   }
 
@@ -901,7 +916,7 @@ export class AnimationManager {
     if (this.effects.length >= MAX_EFFECTS) this.effects.shift()
     this.effects.push(self)
     this.hooks.sound('ring')
-    this.schedule(0.5, () => this.speak(['Alo? Banka mı?!', 'Taksit mi gecikti?!', 'Ben aramadım ki!']))
+    this.schedule(1.3, () => this.speak(['Alo? Banka mı?!', 'Taksit mi gecikti?!', 'Ben aramadım ki!']))
     this.schedule(1.25, () => {
       this.floater('FAİZ +%40!', { x: clamp(at.x, 190, 610), y: at.y - 210 }, '#FFC93C')
       this.debtText(at, Math.round(debt * 1.4))
@@ -956,7 +971,7 @@ export class AnimationManager {
       this.hooks.sound('fall')
       this.shake(8)
     })
-    this.schedule(1.7, () => this.speak(['Aklım gitti…', 'Kaç sıfır vardı orada?!', 'Bana su verin…']))
+    this.schedule(1.6, () => this.speak(['Aklım gitti…', 'Kaç sıfır vardı orada?!', 'Bana su verin…']))
   }
 
   /** Senaryo 5: cepler boş; cepten güve uçar, son kuruş yere düşer */
@@ -990,12 +1005,15 @@ export class AnimationManager {
       this.burst(pos, 1, 'dot', ['#FFC93C'], [60, 120], { gravity: 1400, size: 9, life: 1.2, max: 1.2 })
       this.hooks.sound('cash', 0.4)
     })
-    this.schedule(0.9, () => this.speak(['Cüzdanda güve var!', 'Son kuruşum…', 'Cebimde akrep yok, güve var!']))
+    this.schedule(1.4, () => this.speak(['Cüzdanda güve var!', 'Son kuruşum…', 'Cebimde akrep yok, güve var!']))
     this.cry(1.4, 5)
   }
 
   /** Senaryo balonu */
-  private speak(lines: readonly string[]) { this.bubble = { text: pick(lines), t: 0, life: 2 } }
+  private speak(lines: readonly string[], life = 2) { this.bubble = { text: this.char.taped > 0 ? this.muffle() : pick(lines), t: 0, life } }
+
+  /** Ağzı bantlıyken konuşma */
+  muffle() { return pick(['Mmmf!', 'Hmmf mmf!', 'Mmm-mmm!', 'Mmmf mmmf!', 'Hmm hmm!']) }
 
   /** Balık tokadı: ıslak şapırtı, su damlaları ve pullar */
   private fishImpact(at: Vec, side: 1 | -1) {
@@ -1031,6 +1049,97 @@ export class AnimationManager {
     }
     this.shake(4)
     this.say('pillow', 0.6)
+  }
+
+  /** Ağzını bantla: önce "konuşarak anlaşalım" diye yalvarır, sonra ağzına çapraz bant yapışır; birkaç saniye "Mmmf!";
+   *  sonunda bant cırt diye sökülür ("AAAH!") ve dudak çevresi kızarır */
+  private tapeMouth(side: 1 | -1): Effect {
+    const IN = 0.75, HOLD = 3.4
+    const mouth = () => this.char.headToWorld(this.char.featureLocal(this.char.face.features.mouth))
+    this.speak(['Bu oyunda konuşarak anlaşma yok mu?!', 'Dur, konuşarak anlaşalım!', 'Bir dakika, açıklayabilirim!'], 1.2)
+    let stuck = false
+    this.hooks.sound('whoosh')
+    const self: Effect = {
+      t: 0, dur: IN,
+      update: (dt) => {
+        self.t += dt
+        if (!stuck && self.t >= IN) {
+          stuck = true
+          const m = this.char.featureLocal(this.char.face.features.mouth)
+          this.char.taped = HOLD
+          this.addDecal({ kind: 'tape', t: 0, life: HOLD, blobs: [], x: m.x, y: m.y + 4, rot: rand(-0.08, 0.08) })
+          this.strike(mouth(), side, 0.4)
+          this.hooks.sound('stamp', 0.6)
+          this.setExpression('shock', 1.2, 2)
+          this.popText('tape', mouth())
+          this.schedule(0.5, () => this.speak(BUBBLES.tape, 1.5))
+          this.schedule(1.9, () => this.speak(BUBBLES.tape, 1.3))
+          // bant sökülür
+          this.schedule(HOLD, () => {
+            this.char.taped = 0
+            this.decals = this.decals.filter(d => d.kind !== 'tape')
+            this.char.impact(mouth(), side, 0.3, 'tape')
+            this.hooks.sound('whoosh'); this.hooks.sound('yell')
+            this.char.pose.jaw.impulse(12); this.char.pose.headY.impulse(-260)
+            this.texts.push({ text: 'CIRRT! AAAH!', x: clamp(mouth().x, 220, 580), y: mouth().y - 120, t: 0, life: 1.1, color: '#FF8FB1', rot: rand(-0.12, 0.12), size: 58 })
+            this.setExpression('shut', 0.6, 2)
+            this.schedule(0.7, () => this.speak(['Bıyığım da gitti!', 'Ağda gibi oldu!', 'Konuşmak yasak mı?!', 'Bir daha konuşmam, söz!']))
+          })
+        }
+      },
+      draw: (ctx) => {
+        if (stuck) return
+        const u = easeInCubic(Math.min(1, self.t / IN)), m = mouth()
+        const x = lerp(m.x + side * 420, m.x, u), y = lerp(m.y - 260, m.y, u)
+        ctx.save(); ctx.translate(x, y); ctx.rotate(side * (1 - u) * 2)
+        drawTapeRoll(ctx)
+        ctx.restore()
+      },
+    }
+    return self
+  }
+
+  /** Kuaför şakası: fön makinesi saçı kabartır, sonra renkli sprey saçı boyar; karakter isyan eder */
+  private salonPrank(side: 1 | -1): Effect {
+    const BLOW = 0.7, SPRAY = 1.15
+    const color = pick(['#FF4FB8', '#3DDC84', '#36A9FF', '#B36BFF', '#FF8A00'])
+    let sprayed = false
+    this.hooks.sound('whoosh')
+    const self: Effect = {
+      t: 0, dur: SPRAY + 0.5,
+      update: (dt) => {
+        self.t += dt
+        const top = this.char.headToWorld({ x: 0, y: -FACE_H * 0.5 })
+        if (self.t < BLOW) {
+          this.char.poof = Math.max(this.char.poof, self.t / BLOW)
+          if (Math.random() < dt * 25) this.burst({ x: top.x + side * 120, y: top.y + rand(-30, 30) }, 1, 'stream', ['rgba(255,255,255,0.6)'], [300, 500], { gravity: 0, drag: 1, life: 0.3, max: 0.3, size: 4 })
+        }
+        if (!sprayed && self.t >= SPRAY) {
+          sprayed = true
+          this.char.dyeHair(color)
+          this.hooks.sound('splash', 0.5)
+          this.burst(top, 26, 'smoke', [color], [60, 200], { gravity: -40, drag: 1.6, size: 14, life: 1.2, max: 1.2 })
+          this.popText('salon', top)
+          this.setExpression('shock', 1, 2)
+          this.char.pose.brow.impulse(8); this.char.pose.jaw.impulse(9)
+          this.hooks.excite(0.6)
+          this.say('salon', 1)
+        }
+      },
+      draw: (ctx) => {
+        const t = self.t, top = this.char.headToWorld({ x: 0, y: -FACE_H * 0.45 })
+        ctx.save()
+        if (t < BLOW + 0.1) {
+          ctx.translate(top.x + side * 230, top.y + Math.sin(t * 30) * 4); ctx.scale(-side, 1)
+          drawHairDryer(ctx)
+        } else if (t < SPRAY + 0.35) {
+          ctx.translate(top.x + side * 200, top.y - 20); ctx.rotate(side * -0.5)
+          drawSprayCan(ctx, color)
+        }
+        ctx.restore()
+      },
+    }
+    return self
   }
 
   /** Örümcek şakası: tavandan iple oyuncak örümcek iner; karakter çığlık atıp zıplar */
@@ -1239,6 +1348,17 @@ export class AnimationManager {
         ctx.font = `400 32px ${FONT_DISPLAY}`; ctx.fillText('KREDİ ONAY', 0, -8, 222)
         ctx.font = `800 16px ${FONT_BODY}`; ctx.fillText('FAİZ %300 · 120 AY', 0, 22, 222)
         ctx.restore()
+      } else if (d.kind === 'tape') {
+        // çapraz koli bandı (ağzın üstünde)
+        for (const r of [-0.32, 0.32]) {
+          ctx.save(); ctx.translate(d.x ?? 0, d.y ?? 0); ctx.rotate(r + (d.rot ?? 0))
+          ctx.fillStyle = '#B9BCC2'; ctx.strokeStyle = 'rgba(27,31,59,0.45)'; ctx.lineWidth = 3
+          ctx.beginPath(); ctx.roundRect(-95, -20, 190, 40, 4); ctx.fill(); ctx.stroke()
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2
+          for (let x = -80; x < 90; x += 22) { ctx.beginPath(); ctx.moveTo(x, -16); ctx.lineTo(x + 8, 16); ctx.stroke() }
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(-90, -16, 180, 6)
+          ctx.restore()
+        }
       } else if (d.kind === 'confetti') {
         const colors = CONFETTI
         d.blobs.forEach((b, i) => {
@@ -1326,9 +1446,11 @@ export class AnimationManager {
     if (this.banner) {
       const b = this.banner, u = b.t / b.life
       const s = u < 0.15 ? easeOutBack(u / 0.15) : 1
-      ctx.save(); ctx.globalAlpha = clamp((1 - u) / 0.15, 0, 1); ctx.translate(400, 150); ctx.scale(s, s); ctx.rotate(-0.04)
       ctx.font = `400 46px ${FONT_DISPLAY}`
       const w = ctx.measureText(b.text).width + 70
+      // telefonda sahnenin kenarları kırpılır: afiş görünen genişliğe sığsın
+      const fit = Math.min(1, (this.view.x1 - this.view.x0 - 24) / w)
+      ctx.save(); ctx.globalAlpha = clamp((1 - u) / 0.15, 0, 1); ctx.translate((this.view.x0 + this.view.x1) / 2, 150); ctx.scale(s * fit, s * fit); ctx.rotate(-0.04)
       ctx.fillStyle = '#FF4B3E'; ctx.beginPath(); ctx.roundRect(-w / 2, -42, w, 84, 18); ctx.fill()
       ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 6; ctx.stroke()
       ctx.fillStyle = '#FFF4E0'; ctx.fillText(b.text, 0, 3)
@@ -1342,8 +1464,8 @@ export class AnimationManager {
     const s = u < 0.18 ? easeOutBack(u / 0.18) : 1
     ctx.save()
     ctx.font = `800 30px ${FONT_BODY}`
-    const w = Math.min(330, ctx.measureText(b.text).width + 44), h = 64
-    const x = clamp(anchor.x + 40, 20, 780 - w), y = clamp(anchor.y - 90, 20, 900)
+    const w = Math.min(330, this.view.x1 - this.view.x0 - 24, ctx.measureText(b.text).width + 44), h = 64
+    const x = clamp(anchor.x + 40, this.view.x0 + 12, this.view.x1 - 12 - w), y = clamp(anchor.y - 90, 20, 900)
     ctx.globalAlpha = clamp((1 - u) / 0.2, 0, 1)
     ctx.translate(x, y + h); ctx.scale(s, s); ctx.translate(0, -h)
     ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 5
@@ -1553,4 +1675,33 @@ function drawFlourSack(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = '#1B1F3B'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `400 20px ${FONT_DISPLAY}`; ctx.fillText('UN', 0, 10)
   ctx.fillStyle = 'rgba(255,255,255,0.9)'
   for (const [x, y] of [[-20, -48], [4, -52], [22, -46]] as const) { ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill() }
+}
+
+
+/** Koli bandı rulosu */
+function drawTapeRoll(ctx: CanvasRenderingContext2D) {
+  ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 4
+  ctx.fillStyle = '#B9BCC2'; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#E9DCC2'; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#B9BCC2'; ctx.beginPath(); ctx.moveTo(30, 26); ctx.lineTo(80, 50); ctx.lineTo(74, 66); ctx.lineTo(24, 38); ctx.closePath(); ctx.fill(); ctx.stroke()
+}
+
+
+/** Fön makinesi (ağzı +x yönünde) */
+function drawHairDryer(ctx: CanvasRenderingContext2D) {
+  ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 4
+  ctx.fillStyle = '#FF7AB6'; ctx.beginPath(); ctx.roundRect(-60, -30, 110, 60, 28); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#3B3355'; ctx.beginPath(); ctx.roundRect(46, -20, 34, 40, 8); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#FF7AB6'; ctx.beginPath(); ctx.roundRect(-30, 20, 28, 70, 10); ctx.fill(); ctx.stroke()
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 3
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(92, -14 + i * 14); ctx.lineTo(130, -18 + i * 18); ctx.stroke() }
+}
+
+/** Saç boyası spreyi */
+function drawSprayCan(ctx: CanvasRenderingContext2D, color: string) {
+  ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 4
+  ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(-24, -10, 48, 96, 10); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#E8E8EE'; ctx.beginPath(); ctx.roundRect(-16, -30, 32, 22, 6); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(-16, 20, 32, 30)
+  ctx.fillStyle = '#1B1F3B'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 12px ${FONT_BODY}`; ctx.fillText('BOYA', 0, 35)
 }

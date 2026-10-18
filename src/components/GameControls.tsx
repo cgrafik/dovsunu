@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GameEngine } from '../game/GameEngine'
 import { isUnlocked, totalPoints } from '../game/progress'
-import { TOOLS } from '../game/tools'
+import { TOOLS, type ToolDef } from '../game/tools'
 import type { ToolId } from '../game/types'
 
 interface Props {
   engine: GameEngine | null
+  /** Gösterilecek araçlar (kadın karakterde uyarıdan sonra yalnızca hafif şakalar) */
+  tools: readonly ToolDef[]
   selected: ToolId
   disabled: boolean
   onSelect: (t: ToolId) => void
@@ -13,14 +15,14 @@ interface Props {
 }
 
 const TOOL_COLORS: Record<ToolId, string> = {
-  slap: '#FF9FB8', punch: '#FF7A6E', slipper: '#7FD3FF', sponge: '#FFC93C', pie: '#FFC2D4', water: '#5BC0EB', dizzy: '#FFE066', tickle: '#FFB36B', shock: '#FFF06B', loan: '#8EDB9A', spider: '#C9C2D9', confetti: '#FFB3E6', flour: '#F3EBDD', pillow: '#E8E4FF', fish: '#9FD8E8', goldslipper: '#FFD54A',
+  slap: '#FF9FB8', punch: '#FF7A6E', slipper: '#7FD3FF', sponge: '#FFC93C', pie: '#FFC2D4', water: '#5BC0EB', dizzy: '#FFE066', tickle: '#FFB36B', shock: '#FFF06B', loan: '#8EDB9A', spider: '#C9C2D9', confetti: '#FFB3E6', flour: '#F3EBDD', salon: '#FFC2E2', tape: '#C8C8C8', pillow: '#E8E4FF', fish: '#9FD8E8', goldslipper: '#FFD54A',
 }
 
 /**
  * Araç çubuğu. Düğmeye basmak aracı seçer VE hemen hedefe kullanır; canvas'a dokunmak seçili aracı oraya kullanır.
  * Bekleme süresi göstergesi React render'ı tetiklemeden (rAF + doğrudan stil) güncellenir.
  */
-export function GameControls({ engine, selected, disabled, onSelect, onFire }: Props) {
+export function GameControls({ engine, tools, selected, disabled, onSelect, onFire }: Props) {
   const cds = useRef(new Map<ToolId, HTMLElement>())
   const [total] = useState(totalPoints)
 
@@ -41,7 +43,7 @@ export function GameControls({ engine, selected, disabled, onSelect, onFire }: P
 
   return (
     <div className="tools" role="toolbar" aria-label="Etkileşim araçları">
-      {TOOLS.map(t => {
+      {tools.map(t => {
         const open = isUnlocked(t, total)
         return (
         <button key={t.id} className={`tool${open ? '' : ' locked'}`} style={{ ['--c' as string]: TOOL_COLORS[t.id] }}

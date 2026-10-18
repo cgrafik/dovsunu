@@ -83,6 +83,10 @@ export class CharacterRenderer {
   flash = 0
   /** Un torbası: yüz bembeyaz (1 → 0 yavaşça) */
   flour = 0
+  /** Ağız bantlı (sn): çene açılmaz */
+  taped = 0
+  /** Fön: saçlar kabarık (1 → 0) */
+  poof = 0
   /** Dünya → kafa yerel dönüşümü (efektler bunu kullanır) */
   headMatrix = new DOMMatrix()
   bodyMatrix = new DOMMatrix()
@@ -145,6 +149,9 @@ export class CharacterRenderer {
     return [k, k * 0.97, k * 0.95]
   }
 
+  /** Kuaför şakası: saçı boya */
+  dyeHair(color: string) { this.ensureFace(); this.damage?.setDye(color); this.repaintDamage() }
+
   dispose() {
     this.warp?.dispose(); this.warp = null; this.warpFace = null
     for (const c of [this.texN, this.texC]) if (c) { c.width = 0; c.height = 0 }
@@ -163,7 +170,7 @@ export class CharacterRenderer {
     }
     this.soot = Math.max(0, this.soot - dt * 0.28)
     const flicker = this.zap > 0 ? 0.75 + 0.25 * Math.sin(this.t * 70) : 0
-    this.shape.frizz = Math.max(this.zap * flicker, this.soot * 0.7)
+    this.shape.frizz = Math.max(this.zap * flicker, this.soot * 0.7, this.poof * 0.55)
     this.shape.jaw = this.pose.jaw.value * JAW_PX * (this.warp.texH / (FACE_H * this.face.expand))
     this.warp.update(dt)
   }
@@ -177,6 +184,8 @@ export class CharacterRenderer {
     this.blush = Math.max(0, this.blush - dt * 0.4)
     this.flash = Math.max(0, this.flash - dt * 9)
     this.flour = Math.max(0, this.flour - dt * 0.16)
+    this.poof = Math.max(0, this.poof - dt * 0.12)
+    if (this.taped > 0) { this.taped = Math.max(0, this.taped - dt); this.pose.jaw.value = Math.min(this.pose.jaw.value, 0.06); this.pose.jaw.velocity = 0 }
     // göz kırpma: 2,5–5 sn'de bir, 0,13 sn
     this.blinkAt -= dt
     if (this.blinkAt <= 0) { this.blinkT = 0.13; this.blinkAt = 2.5 + Math.random() * 2.5 }

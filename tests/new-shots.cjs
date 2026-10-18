@@ -32,9 +32,9 @@ const tool = (p, name) => p.getByRole('button', { name: new RegExp(name) }).firs
   {
     const { p, errors } = await start(b, 'Erkek')
     const canvas = p.locator('canvas').first(), box = await canvas.boundingBox()
-    const sc = Math.min(box.width / 800, box.height / 1000), offY = box.height - 1000 * sc
-    const head = { x: box.x + 400 * sc, y: box.y + offY + 430 * sc }
-    const clip = { x: Math.max(0, head.x - 130), y: head.y - 140, width: 260, height: 290 }
+    const sc = (box.height > box.width * 1.05 ? Math.min(box.height / 1000, box.width / (800 * 0.74)) : Math.min(box.width / 800, box.height / 1000)), offY = box.height - 1000 * sc
+    const head = { x: box.x + box.width / 2, y: box.y + offY + 430 * sc }
+    const clip = { x: Math.max(0, head.x - 270 * sc), y: Math.max(0, head.y - 290 * sc), width: Math.min(box.width, 540 * sc), height: 600 * sc }
     await p.screenshot({ path: path.join(OUT, 'yeni-0-temiz.png'), clip })
     for (const [name, n, wait] of [['Tokat', 6, 450], ['Boks Eldiveni', 5, 620], ['Sünger Sopa', 4, 480], ['Elektrik', 1, 1500], ['Tokat', 4, 450]]) {
       for (let i = 0; i < n; i++) { await tool(p, name); await sleep(wait) }
@@ -47,7 +47,7 @@ const tool = (p, name) => p.getByRole('button', { name: new RegExp(name) }).firs
       await sleep(1000)
     }
     // şiddetsiz şakalar
-    for (const [name, file, wait] of [['Örümcek Şakası', 'sakalar-orumcek', 800], ['Konfeti Topu', 'sakalar-konfeti', 500], ['Un Torbası', 'sakalar-un', 700]]) {
+    for (const [name, file, wait] of [['Örümcek Şakası', 'sakalar-orumcek', 800], ['Konfeti Topu', 'sakalar-konfeti', 500], ['Un Torbası', 'sakalar-un', 700], ['Ağzını Bantla', 'bant', 1500]]) {
       await tool(p, name); await sleep(wait)
       await p.screenshot({ path: path.join(OUT, `yeni-5-${file}.png`) })
       await sleep(1500)
@@ -85,13 +85,20 @@ const tool = (p, name) => p.getByRole('button', { name: new RegExp(name) }).firs
     await sleep(600)
     const s1 = await score(p)
     ok(s1 === s0, `kadın: tokat puan vermedi (${s0} → ${s1})`)
-    await tool(p, 'Boks Eldiveni'); await sleep(900)
-    ok(await score(p) === s1, 'kadın: yumruk puan vermedi')
+    ok(await p.getByRole('button', { name: /^Boks Eldiveni/ }).count() === 0, 'kadın: uyarıdan sonra sert araçlar kalktı')
+    ok(await p.getByRole('button', { name: /^Kremalı Pasta/ }).count() === 1, 'kadın: hafif araçlar duruyor')
+    { const c = p.locator('canvas').first(), bb = await c.boundingBox(), k = bb.height > bb.width * 1.05 ? Math.min(bb.height / 1000, bb.width / (800 * 0.74)) : Math.min(bb.width / 800, bb.height / 1000)
+      await p.mouse.click(bb.x + bb.width / 2, bb.y + bb.height - 1000 * k + 440 * k) }
+    await sleep(900)
+    ok(await score(p) > s1, 'kadın: karaktere dokunuş hafif araçla puan verdi')
+    await p.screenshot({ path: path.join(OUT, 'yeni-9-kadin-araclar.png') })
     await tool(p, 'Kremalı Pasta'); await sleep(900)
     const s2 = await score(p)
-    ok(s2 > s1, `kadın: pasta çalışıyor (${s1} → ${s2})`)
+    ok(s2 > s1, `kadın: pasta çalışıyor`)
     await tool(p, 'Gıdıklama'); await sleep(700)
     await p.screenshot({ path: path.join(OUT, 'yeni-4-kadin-gidik.png') })
+    await sleep(1200); await tool(p, 'Kuaför Şakası'); await sleep(1700)
+    await p.screenshot({ path: path.join(OUT, 'yeni-10-kadin-kuafor.png') })
     ok(await score(p) > s2, 'kadın: gıdıklama çalışıyor')
     ok(!errors.length, 'kadın: sayfa hatası yok' + (errors.length ? ' — ' + errors.join(' | ') : ''))
   }

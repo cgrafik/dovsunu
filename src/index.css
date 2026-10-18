@@ -252,12 +252,23 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 /* araç çubuğu */
 .tools-wrap { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .tools { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
-@media (max-width: 560px) { .tools { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; } .tool { min-height: 56px; padding: 4px 2px; } .tool .label { font-size: 11px; } .tool .emoji { font-size: 22px; } }
+@media (max-width: 560px) {
+  .tools { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; padding-bottom: 2px; }
+  .tool { min-height: 46px; padding: 3px 1px; gap: 1px; border-width: 2px; border-radius: 11px; box-shadow: 0 3px 0 var(--cream-dim), 0 3px 0 2px var(--ink); }
+  /* telefonda yer dar: açık araçlarda yalnızca emoji (adı ekran okuyucuda), kilitlide puan yazısı */
+  .tool:not(.locked) .label { display: none; }
+  .tool .label { font-size: 9px; letter-spacing: -0.3px; white-space: nowrap; }
+  .tool .emoji { font-size: 22px; }
+  .tool kbd { display: none; }
+  .tools-wrap { gap: 6px; }
+  .game-layout { gap: 6px; }
+  .game-actions .btn { min-height: 38px; padding: 6px 10px; font-size: 14px; }
+}
 @media (min-width: 900px) and (min-aspect-ratio: 1/1) {
-  .tools { grid-template-columns: 1fr; align-content: start; }
-  .tool { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 56px; padding: 6px 14px; }
-  .tool .label { font-size: 16px; text-align: left; }
-  .tool .emoji { font-size: 30px; }
+  .tools { grid-template-columns: 1fr 1fr; align-content: start; overflow-y: auto; }
+  .tool { flex-direction: row; justify-content: flex-start; gap: 8px; min-height: 46px; padding: 4px 10px; }
+  .tool .label { font-size: 14px; text-align: left; }
+  .tool .emoji { font-size: 24px; }
 }
 .tool {
   --c: var(--sun);
@@ -340,3 +351,7 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 /* meydan okuma */
 .challenge { background: rgba(255, 201, 60, 0.16); border: 2px dashed var(--sun); border-radius: 14px; padding: 10px 14px; font-weight: 800; }
 .challenge.won { background: rgba(123, 228, 149, 0.2); border-color: #7BE495; }
+
+.game-actions { display: flex; gap: 8px; }
+.game-actions .btn { flex: 1; }
+.game-actions .btn.ghost { flex: 0 0 auto; }
