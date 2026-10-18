@@ -385,6 +385,16 @@ export class FaceWarp {
   /** Bükülmüş yüzdeki bir yüz noktasının yeri (yüz görseli pikseli) — dil gibi katmanlar için */
   deformedPoint(v: number): Vec { return { x: this.pos[v * 2] - WARP_PAD_X, y: this.pos[v * 2 + 1] - WARP_PAD_TOP } }
 
+  /** Yüz görselleri değişti (kalıcı hasar izleri işlendi): dokuları yeniden yükle */
+  setTextures(natural: HTMLCanvasElement, cartoon: HTMLCanvasElement) {
+    if (this.lost) return
+    const gl = this.gl
+    for (const [t, img] of [[this.texNatural, natural], [this.texCartoon, cartoon]] as const) {
+      gl.bindTexture(gl.TEXTURE_2D, t)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+    }
+  }
+
   dispose() {
     this.gl.getExtension('WEBGL_lose_context')?.loseContext()
     this.canvas.width = 0; this.canvas.height = 0

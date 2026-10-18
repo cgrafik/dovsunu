@@ -5,7 +5,7 @@ import { CharacterRenderer } from './CharacterRenderer'
 import { clamp, pick, rand } from './math'
 import { SCENES, drawSceneBack, drawSceneFront, sceneById } from './scenes'
 import type { ScoreManager } from './ScoreManager'
-import type { SoundManager } from './SoundManager'
+import type { SoundId, SoundManager } from './SoundManager'
 import { toolById } from './tools'
 import { TAUNTS } from './taunts'
 import { WORLD_H, WORLD_W, type CharacterLook, type FaceAsset, type ToolId, type Vec } from './types'
@@ -65,7 +65,7 @@ export class GameEngine {
     this.opts = opts
     this.char = new CharacterRenderer(opts.face, opts.look)
     this.anim = new AnimationManager(this.char, {
-      sound: (id, k) => { if (opts.mode !== 'demo') opts.sound.play(id, k) },
+      sound: (id, k) => { if (opts.mode !== 'demo') opts.sound.play(this.voiced(id), k) },
       shake: (a) => { this.shakeAmt = Math.min(22, this.shakeAmt + a) },
       excite: (a) => { this.excite = Math.min(1, this.excite + a) },
     }, opts.reducedMotion)
@@ -101,12 +101,37 @@ export class GameEngine {
     return clamp((ready - now) / toolById(tool).cooldown, 0, 1)
   }
 
+  /** Kadın karakterde bağırma ve kahkaha kadın sesiyle çalar */
+  private voiced(id: SoundId): SoundId {
+    if (this.char.look.body !== 'f') return id
+    return id === 'yell' ? 'yellF' : id === 'giggle' ? 'giggleF' : id
+  }
+
+  /** Kadın karaktere sert araç: vuruş olmaz; "kadına şiddete hayır", seyirci yuhalar, kombo biter */
+  private noViolence() {
+    this.opts.score?.miss()
+    this.prevMult = 1
+    this.anim.noViolence()
+    if (this.opts.mode !== 'demo') {
+      this.opts.sound.play('boo')
+      setTimeout(() => this.opts.sound.play('whistle'), 250)
+      setTimeout(() => this.opts.sound.play('whistle', 0.8), 750)
+    }
+    this.excite = 1
+  }
+
   /** Aracı kullan. at verilmezse aracın hedefine (kafa / gövde) nişan alınır. Kullanılamadıysa false. */
   useTool(tool: ToolId, at?: Vec): boolean {
     if (this.finished) return false
     const now = performance.now()
     if (now < (this.readyAt.get(tool) ?? 0)) return false
     const def = toolById(tool)
+    if (this.char.look.body === 'f' && !def.soft) {
+      this.readyAt.set(tool, now + 900)
+      this.idleIn = rand(5, 8)
+      this.noViolence()
+      return true
+    }
     const point = at ?? (def.target === 'head' ? this.char.headCenter() : this.char.bodyToWorld({ x: rand(-50, 50), y: -150 }))
     const zone = at ? this.char.hitZone(at) : def.target
     this.readyAt.set(tool, now + def.cooldown)
@@ -172,7 +197,7 @@ export class GameEngine {
     const at = this.toWorld(e.clientX, e.clientY)
     if (this.opts.mode === 'preview') {
       // önizleme: karaktere dokununca küçük bir deneme (puan yok)
-      if (this.char.hitZone(at) !== 'none') this.useTool(pick(['slap', 'pie', 'tickle', 'slipper'] as const), at)
+      if (this.char.hitZone(at) !== 'none') this.useTool(pick(this.char.look.body === 'f' ? ['pie', 'tickle', 'water'] as const : ['slap', 'pie', 'tickle', 'slipper'] as const), at)
       return
     }
     const zone = this.char.hitZone(at)

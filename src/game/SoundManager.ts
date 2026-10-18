@@ -9,6 +9,8 @@ export type SoundId =
   | 'click' | 'slap' | 'punch' | 'thwack' | 'bonk' | 'splat' | 'splash' | 'giggle' | 'yell' | 'cheer' | 'fail'
   | 'score' | 'combo' | 'milestone' | 'dizzy' | 'boing' | 'whoosh' | 'bell'
   | 'zap' | 'buzz' | 'fire' | 'stamp' | 'cash'
+  /** Kadın karakterin sesleri, yuhalama, telefon zili, yere düşme */
+  | 'yellF' | 'giggleF' | 'boo' | 'whistle' | 'ring' | 'fall'
 
 type Voice = (s: SoundManager, t: number, k: number) => number   // dönüş: sesin süresi (sn)
 
@@ -18,7 +20,7 @@ const BASE = import.meta.env.BASE_URL
 /** Kayıt dosyaları: public/sfx/<ad>-<n>.mp3 (n adet) */
 const FILES: Record<string, number> = {
   slap: 5, punch: 5, bonk: 4, splat: 2, splash: 4, giggle: 4, cheer: 2, zap: 4, buzz: 2, fire: 2, stamp: 3, cash: 3,
-  whoosh: 4, yell: 1, thump: 5, thud: 4,
+  whoosh: 4, yell: 1, thump: 5, thud: 4, yellf: 6, whistle: 3, ring: 1, fall: 1,
 }
 interface Layer { file: string; rate?: number; gain?: number; delay?: number }
 /**
@@ -41,6 +43,12 @@ const SAMPLES: Partial<Record<SoundId, { layers: Layer[]; boom?: number; rateJit
   fire: { layers: [{ file: 'fire', gain: 0.85 }] },
   stamp: { layers: [{ file: 'stamp', gain: 1 }, { file: 'thump', rate: 0.7, gain: 0.6 }], boom: 0.2 },
   cash: { layers: [{ file: 'cash', gain: 0.8 }] },
+  yellF: { layers: [{ file: 'yellf', gain: 0.85 }] },
+  // kadın kahkahası için ayrı kayıt yok: aynı kahkaha daha ince (hızlı) çalar
+  giggleF: { layers: [{ file: 'giggle', rate: 1.3, gain: 0.85 }] },
+  whistle: { layers: [{ file: 'whistle', gain: 0.45 }], rateJitter: 0.12 },
+  ring: { layers: [{ file: 'ring', gain: 0.6 }] },
+  fall: { layers: [{ file: 'fall', gain: 1 }, { file: 'thud', rate: 0.7, gain: 0.6 }], boom: 0.3 },
 }
 const PREF_KEY = 'saplak_ses'
 
@@ -403,4 +411,18 @@ const VOICES: Record<SoundId, Voice[]> = {
   fire: [(s, t) => { s.noiseBurst(t, 0.9, 0.35, 'lowpass', 600, 2400, 0.8); return 1 }],
   stamp: [(s, t) => { s.tone('sine', 150, 50, t, 0.18, 0.8); s.noiseBurst(t, 0.06, 0.5, 'lowpass', 1500, 300); return 0.2 }],
   cash: [(s, t) => { for (let i = 0; i < 6; i++) s.tone('triangle', rand(2600, 3600), rand(2500, 3400), t + i * 0.05, 0.12, 0.08); return 0.45 }],
+  yellF: [(s, t) => { s.tone('sawtooth', 560, 820, t, 0.5, 1, { attack: 0.03, vibrato: [8, 24], dest: s.formant(t, 0.55, 900, 1500, 0.35) }); return 0.55 }],
+  giggleF: [(s, t) => { for (let i = 0; i < 5; i++) { const st = t + i * 0.1; s.tone('sawtooth', 620 - i * 20, 560 - i * 20, st, 0.07, 1, { dest: s.formant(st, 0.08, 950, 1600, 0.3) }) } return 0.6 }],
+  // Kalabalık yuhalaması: alçak "buuu" koro (u sesi), perdesi yavaşça düşer
+  boo: [(s, t) => {
+    for (let v = 0; v < 9; v++) {
+      const f = rand(105, 175), st = t + rand(0, 0.15)
+      s.tone('sawtooth', f, f * 0.82, st, 1.7, 1, { attack: 0.18, vibrato: [rand(4, 7), 4], dest: s.formant(st, 1.75, 320, 800, 0.075) })
+    }
+    s.noiseBurst(t, 1.6, 0.06, 'bandpass', 500, 380, 0.8)
+    return 1.9
+  }],
+  whistle: [(s, t) => { s.tone('sine', 2500, 2900, t, 0.5, 0.12, { vibrato: [30, 120] }); return 0.55 }],
+  ring: [(s, t) => { for (let i = 0; i < 2; i++) { s.tone('sine', 440, 440, t + i * 0.5, 0.35, 0.1, { vibrato: [20, 40] }); s.tone('sine', 480, 480, t + i * 0.5, 0.35, 0.08) } return 1 }],
+  fall: [(s, t) => { s.tone('sine', 120, 40, t, 0.3, 0.9); s.noiseBurst(t, 0.2, 0.5, 'lowpass', 900, 150); return 0.35 }],
 }

@@ -3,6 +3,7 @@
 // Kafa dönüşümü (headMatrix) her karede hesaplanır; yüze yapışan efektler (pasta, su) bu dönüşümle çizilir → kaymaz.
 import { FaceWarp, WARP_PAD_TOP, WARP_PAD_X, type FaceShape } from '../face/FaceWarp'
 import { realBody, type RealBody } from './bodies'
+import { FaceDamage, type DamageKind } from './damage'
 import { Spring, clamp, seeded, shade } from './math'
 import { sceneById, type Hat, type Outfit, type SceneDef } from './scenes'
 import type { CharacterLook, Expression, FaceAsset, Vec } from './types'
@@ -84,6 +85,10 @@ export class CharacterRenderer {
   /** Gerçekçi yüz (fotoğraf yüz ağına gerilir); yüz noktaları ya da WebGL yoksa null → eski çizim */
   private warp: FaceWarp | null = null
   private warpFace: FaceAsset | null = null
+  /** Yüzün çalışma kopyaları: kalıcı hasar izleri bunlara işlenir (asıl fotoğraf değişmez) */
+  private texN: HTMLCanvasElement | null = null
+  private texC: HTMLCanvasElement | null = null
+  private damage: FaceDamage | null = null
   private shape: FaceShape = { jaw: 0, blinkL: 0, blinkR: 0, smile: 0, brow: 0, frown: 0, pucker: 0, frizz: 0 }
   /** Elektrik çarpıyor (0..1): yüz parlar, saçlar dikilir */
   zap = 0
@@ -96,11 +101,36 @@ export class CharacterRenderer {
   }
 
   /** Darbe: yüz ağı vuruş noktası çevresinde yaylanır (side: vuruşun geldiği yan) */
-  impact(world: Vec, side: 1 | -1, power: number) {
+  impact(world: Vec, side: 1 | -1, power: number, kind?: DamageKind) {
+    this.ensureFace()
+    if (kind && this.damage?.add(kind, side)) this.repaintDamage()
     if (!this.warp) return
     const h = this.toHeadLocal(world)
     const E = this.face.expand
     this.warp.impact({ x: (h.x / (FACE_W * E) + 0.5) * this.warp.texW, y: (h.y / (FACE_H * E) + 0.5) * this.warp.texH }, { x: -side, y: 0.25 }, power)
+  }
+
+  /** Kalıcı izleri yüzün çalışma kopyasına işle (asıl fotoğraf değişmez), dokuları güncelle */
+  private repaintDamage() {
+    if (!this.texN || !this.texC || !this.damage) return
+    for (const [dst, src] of [[this.texN, this.face.natural], [this.texC, this.face.cartoon]] as const) {
+      const ctx = dst.getContext('2d')!
+      ctx.clearRect(0, 0, dst.width, dst.height)
+      ctx.drawImage(src, 0, 0)
+      this.damage.paint(ctx)
+    }
+    this.warp?.setTextures(this.texN, this.texC)
+  }
+
+  /** Yüz değiştiyse çalışma kopyalarını, hasar katmanını ve yüz ağını yeniden kur */
+  private ensureFace() {
+    if (this.warpFace === this.face) return
+    this.warp?.dispose()
+    this.warpFace = this.face
+    const copy = (c: HTMLCanvasElement) => { const d = document.createElement('canvas'); d.width = c.width; d.height = c.height; d.getContext('2d')!.drawImage(c, 0, 0); return d }
+    this.texN = copy(this.face.natural); this.texC = copy(this.face.cartoon)
+    this.damage = new FaceDamage(this.face.features, this.face.expand, this.texN.width, this.texN.height)
+    this.warp = FaceWarp.create({ ...this.face, natural: this.texN, cartoon: this.texC })
   }
 
   /** Yüz rengi: elektrik anında yanıp sönen parlama, sonra is (kararma) */
@@ -110,10 +140,14 @@ export class CharacterRenderer {
     return [k, k * 0.97, k * 0.95]
   }
 
-  dispose() { this.warp?.dispose(); this.warp = null; this.warpFace = null }
+  dispose() {
+    this.warp?.dispose(); this.warp = null; this.warpFace = null
+    for (const c of [this.texN, this.texC]) if (c) { c.width = 0; c.height = 0 }
+    this.texN = this.texC = null; this.damage = null
+  }
 
   private updateWarp(dt: number) {
-    if (this.warpFace !== this.face) { this.warp?.dispose(); this.warpFace = this.face; this.warp = FaceWarp.create(this.face) }
+    this.ensureFace()
     if (!this.warp) return
     const target = EXPRESSION_SHAPES[this.expression]
     const blink = this.expression === 'none' && this.blinkT > 0
@@ -392,7 +426,8 @@ export class CharacterRenderer {
   }
 
   private drawHead(ctx: CanvasRenderingContext2D, hat: Hat) {
-    const face = this.look.cartoon ? this.face.cartoon : this.face.natural
+    // kalıcı hasar izleri işlenmiş çalışma kopyası (yoksa asıl görsel)
+    const face = (this.look.cartoon ? this.texC : this.texN) ?? (this.look.cartoon ? this.face.cartoon : this.face.natural)
     const f = this.face.features
     // kulaklar + kafa tabanı (yüzün yumuşak kenarı arkasında ten rengi)
     ctx.fillStyle = this.face.skin

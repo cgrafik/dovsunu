@@ -158,6 +158,18 @@ export class AnimationManager {
     this.bubble = { text: lines[this.lastLine], t: 0, life: 2.2 }
   }
 
+  /** Kadın karaktere sert araç denendi: afiş, yuhalama yazısı, karakter ayıplar */
+  noViolence() {
+    this.showBanner('KADINA ŞİDDETE HAYIR!')
+    const h = this.char.headCenter()
+    if (this.texts.length >= 6) this.texts.shift()
+    this.texts.push({ text: 'YUUUH!', x: clamp(h.x + rand(-60, 60), 160, 640), y: h.y - 190, t: 0, life: 1.2, color: '#D9D9E3', rot: rand(-0.15, 0.15), size: 70 })
+    this.bubble = { text: pick(['Kadına el kalkmaz!', 'Ayıp, ayıp!', 'Hiç yakıştı mı sana?', 'Şiddete sıfır tolerans!', 'Elini indir bakalım!']), t: 0, life: 2.2 }
+    this.setExpression('happy', 1.2, 2)
+    this.char.pose.brow.impulse(6)
+    this.hooks.excite(1)
+  }
+
   /** Kışkırtma balonu */
   showBubble(text: string, life = 2.4) { this.bubble = { text, t: 0, life } }
 
@@ -233,7 +245,7 @@ export class AnimationManager {
   }
 
   private slapImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1)
+    this.char.impact(at, side, 1, 'slap')
     const p = this.char.pose
     p.headRot.impulse(-side * 11); p.headX.impulse(-side * 950); p.jaw.impulse(6); p.lean.impulse(-side * 0.9)
     p.armL.impulse(rand(3, 6)); p.armR.impulse(rand(3, 6))
@@ -283,7 +295,7 @@ export class AnimationManager {
   }
 
   private punchImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1.3)
+    this.char.impact(at, side, 1.3, 'punch')
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 1150); p.headY.impulse(-260); p.headSquash.set(0.78)
     p.lean.impulse(-side * 1.5); p.squash.set(0.9); p.jaw.impulse(9); p.armL.impulse(5); p.armR.impulse(5)
@@ -332,7 +344,7 @@ export class AnimationManager {
   }
 
   private slipperImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.9)
+    this.char.impact(at, side, 0.9, 'slipper')
     const p = this.char.pose
     p.headSquash.set(0.68); p.headY.impulse(380); p.squash.set(0.84); p.headRot.impulse(side * 3); p.jaw.impulse(7)
     const local = this.char.toHeadLocal(at)
@@ -384,7 +396,7 @@ export class AnimationManager {
   }
 
   private spongeImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 1.1)
+    this.char.impact(at, side, 1.1, 'sponge')
     const p = this.char.pose
     p.headRot.impulse(-side * 7); p.headX.impulse(-side * 700); p.headSquash.set(0.8); p.jaw.impulse(7); p.lean.impulse(-side * 1.2)
     this.setExpression('shut', 0.6, 2)
@@ -424,7 +436,7 @@ export class AnimationManager {
   }
 
   private pieImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.7)
+    this.char.impact(at, side, 0.7, 'pie')
     const p = this.char.pose
     p.headSquash.set(0.72); p.headRot.impulse(-side * 4); p.headY.impulse(-260); p.lean.impulse(-side * 0.6)
     const local = this.char.toHeadLocal(at)
@@ -496,7 +508,7 @@ export class AnimationManager {
   }
 
   private waterImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.3)
+    this.char.impact(at, side, 0.3, 'water')
     const p = this.char.pose
     p.headRot.impulse(-side * 3); p.headSquash.set(0.88); p.jaw.impulse(5)
     const local = this.char.toHeadLocal(at)
@@ -592,7 +604,7 @@ export class AnimationManager {
   }
 
   private dizzyImpact(at: Vec, side: 1 | -1) {
-    this.char.impact(at, side, 0.8)
+    this.char.impact(at, side, 0.8, 'bonk')
     const p = this.char.pose
     p.headSquash.set(0.74); p.squash.set(0.86); p.headRot.impulse(side * 4); p.wobble = this.reduced ? 0.35 : 1
     this.stars = { t: 0, life: 2.7 }
@@ -653,7 +665,7 @@ export class AnimationManager {
   private shockImpact(side: 1 | -1) {
     const p = this.char.pose, h = this.char.headCenter()
     p.armL.impulse(10); p.armR.impulse(10); p.jaw.impulse(11); p.headY.impulse(-320); p.squash.set(1.12)
-    this.char.impact(h, side, 0.6)
+    this.char.impact(h, side, 0.6, 'shock')
     this.char.soot = 1
     this.char.blush = 0
     this.setExpression('shock', 1.05, 3)
@@ -694,18 +706,48 @@ export class AnimationManager {
     return self
   }
 
+  private lastLoan = -1
+
   private loanImpact(at: Vec, side: 1 | -1) {
     const p = this.char.pose
     p.headY.impulse(460); p.headSquash.set(0.78); p.squash.set(0.9); p.jaw.impulse(6)
-    this.char.impact(at, side, 0.7)
+    this.char.impact(at, side, 0.7, 'stamp')
     this.addDecal({ kind: 'stamp', t: 0, life: 4.5, blobs: [], x: rand(-10, 10), y: -FACE_H * 0.17, rot: rand(-0.18, 0.08) })
     this.hooks.sound('stamp')
     this.setExpression('shock', 0.9, 2)
     this.popText('loan', at)
-    const debt = pick(['75.000', '250.000', '500.000', '1.000.000'])
-    this.floater(`-${debt} ₺ BORÇ`,{ x: clamp(at.x, 170, 630), y: at.y - 150 }, '#FF4B3E')
+    const debt = pick([75_000, 250_000, 500_000, 1_000_000])
     this.shake(7)
-    // paralar ceplerden fırlar
+    // her seferinde farklı bir senaryo (aynısı art arda gelmez)
+    this.lastLoan = pickIndexAvoiding(5, this.lastLoan)
+    switch (this.lastLoan) {
+      case 0: this.loanBurn(at, debt); break
+      case 1: this.loanPhone(at, side, debt); break
+      case 2: this.loanSeizure(at, debt); break
+      case 3: this.loanFaint(at, side); break
+      default: this.loanPockets(at, debt)
+    }
+  }
+
+  private debtText(at: Vec, amount: number, color = '#FF4B3E') {
+    this.floater(`-${amount.toLocaleString('tr-TR')} ₺ BORÇ`, { x: clamp(at.x, 190, 610), y: at.y - 150 }, color)
+  }
+
+  /** Ağlama: gözlerden yaş damlaları */
+  private cry(delay: number, count = 7) {
+    const f = this.char.face.features
+    this.schedule(delay, () => this.setExpression('shut', 0.17 * count + 0.2, 2))
+    for (let i = 0; i < count; i++) this.schedule(delay + i * 0.17, () => {
+      for (const e of [f.leftEye, f.rightEye]) {
+        const w = this.char.headToWorld(this.char.featureLocal({ x: e.x, y: e.y + 0.04 }))
+        this.burst(w, 1, 'drop', ['#7FD3FF', '#BDEBFF'], [60, 160], { gravity: 900, size: 7 })
+      }
+    })
+  }
+
+  /** Senaryo 1: paralar ceplerden fırlar, havada tutuşup kül olur */
+  private loanBurn(at: Vec, debt: number) {
+    this.debtText(at, debt)
     this.schedule(0.22, () => {
       this.hooks.sound('cash')
       const pocket = this.char.bodyToWorld({ x: 0, y: -110 })
@@ -719,17 +761,123 @@ export class AnimationManager {
       }
     })
     this.schedule(0.7, () => this.hooks.sound('fire'))
-    this.schedule(0.5, () => this.say('loan', 1))
-    // ağlama: gözlerden yaş damlaları
-    this.schedule(1.0, () => this.setExpression('shut', 1.3, 2))
-    const f = this.char.face.features
-    for (let i = 0; i < 7; i++) this.schedule(1.0 + i * 0.17, () => {
-      for (const e of [f.leftEye, f.rightEye]) {
-        const w = this.char.headToWorld(this.char.featureLocal({ x: e.x, y: e.y + 0.04 }))
-        this.burst(w, 1, 'drop', ['#7FD3FF', '#BDEBFF'], [60, 160], { gravity: 900, size: 7 })
-      }
-    })
+    this.schedule(0.5, () => this.speak(['Paralarım yanıyor!', 'Daha ilk taksit bile ödenmedi!', 'Kredi kartım da mı?!']))
+    this.cry(1.0)
   }
+
+  /** Senaryo 2: banka arar; faiz binerken karakter terler */
+  private loanPhone(at: Vec, side: 1 | -1, debt: number) {
+    this.debtText(at, debt)
+    const self: Effect = {
+      t: 0, dur: 2.6,
+      update: (dt) => { self.t += dt },
+      draw: (ctx) => {
+        const t = self.t, ring = t < 1.9
+        const pos = this.char.headToWorld({ x: side * FACE_W * 0.72, y: FACE_H * 0.05 })
+        const pop = t < 0.18 ? easeOutBack(t / 0.18) : 1, fade = clamp((self.dur - t) / 0.3, 0, 1)
+        ctx.save(); ctx.globalAlpha = fade; ctx.translate(pos.x + (ring ? rand(-4, 4) : 0), pos.y + (ring ? rand(-3, 3) : 0)); ctx.scale(pop, pop); ctx.rotate(side * 0.12)
+        drawPhone(ctx, ring ? t : -1)
+        ctx.restore()
+      },
+    }
+    if (this.effects.length >= MAX_EFFECTS) this.effects.shift()
+    this.effects.push(self)
+    this.hooks.sound('ring')
+    this.schedule(0.5, () => this.speak(['Alo? Banka mı?!', 'Taksit mi gecikti?!', 'Ben aramadım ki!']))
+    this.schedule(1.25, () => {
+      this.floater('FAİZ +%40!', { x: clamp(at.x, 190, 610), y: at.y - 210 }, '#FFC93C')
+      this.debtText(at, Math.round(debt * 1.4))
+      this.setExpression('shock', 0.8, 2)
+    })
+    // ter damlaları
+    for (let i = 0; i < 8; i++) this.schedule(0.9 + i * 0.16, () => {
+      const w = this.char.headToWorld({ x: rand(-FACE_W * 0.35, FACE_W * 0.35), y: -FACE_H * 0.3 })
+      this.burst(w, 1, 'drop', ['#BDEBFF', '#E8F7FF'], [40, 120], { gravity: 700, size: 6 })
+    })
+    this.schedule(2.0, () => this.setExpression('shut', 0.8, 2))
+  }
+
+  /** Senaryo 3: haciz memuru gelir, karaktere ve eşyalara "HACİZLİ" etiketi yapışır */
+  private loanSeizure(at: Vec, debt: number) {
+    this.debtText(at, debt)
+    const tags: { at: number; pos: () => Vec; rot: number }[] = [
+      { at: 0.35, pos: () => this.char.bodyToWorld({ x: 55, y: -215 }), rot: 0.16 },
+      { at: 0.85, pos: () => ({ x: 170, y: 820 }), rot: -0.12 },
+      { at: 1.3, pos: () => ({ x: 640, y: 830 }), rot: 0.1 },
+    ]
+    const self: Effect = {
+      t: 0, dur: 3.4,
+      update: (dt) => { self.t += dt },
+      draw: (ctx) => {
+        for (const tag of tags) {
+          const u = self.t - tag.at
+          if (u < 0) continue
+          const pos = tag.pos(), pop = u < 0.14 ? easeOutBack(u / 0.14) : 1
+          ctx.save(); ctx.globalAlpha = clamp((self.dur - self.t) / 0.4, 0, 1); ctx.translate(pos.x, pos.y); ctx.rotate(tag.rot); ctx.scale(pop, pop)
+          drawSeizureTag(ctx)
+          ctx.restore()
+        }
+      },
+    }
+    if (this.effects.length >= MAX_EFFECTS) this.effects.shift()
+    this.effects.push(self)
+    for (const tag of tags) this.schedule(tag.at, () => { this.hooks.sound('stamp', 0.8); this.shake(3) })
+    this.schedule(1.5, () => this.speak(['Haciz mi?! Masam da mı?!', 'Ayakkabılarım da mı gidiyor?!', 'Annemin halısı o!']))
+    this.cry(1.7)
+  }
+
+  /** Senaryo 4: borcu görünce bayılır */
+  private loanFaint(at: Vec, side: 1 | -1) {
+    this.floater('-9.999.999 ₺ BORÇ', { x: clamp(at.x, 190, 610), y: at.y - 150 }, '#FF4B3E')
+    this.schedule(0.45, () => {
+      const p = this.char.pose
+      p.lean.impulse(-side * 2.2); p.headRot.impulse(-side * 6); p.squash.set(0.82); p.headY.impulse(320)
+      p.wobble = this.reduced ? 0.35 : 1
+      this.stars = { t: 0, life: 2.2 }
+      this.setExpression('dizzy', 2.2, 3)
+      this.hooks.sound('fall')
+      this.shake(8)
+    })
+    this.schedule(1.7, () => this.speak(['Aklım gitti…', 'Kaç sıfır vardı orada?!', 'Bana su verin…']))
+  }
+
+  /** Senaryo 5: cepler boş; cepten güve uçar, son kuruş yere düşer */
+  private loanPockets(at: Vec, debt: number) {
+    this.debtText(at, debt)
+    const self: Effect = {
+      t: 0, dur: 3,
+      update: (dt) => { self.t += dt },
+      draw: (ctx) => {
+        const t = self.t, fade = clamp((self.dur - t) / 0.4, 0, 1)
+        ctx.save(); ctx.globalAlpha = fade
+        // dışarı çıkmış cepler
+        for (const s of [-1, 1] as const) {
+          const pos = this.char.bodyToWorld({ x: s * 112, y: -30 }), pop = t < 0.2 ? easeOutBack(t / 0.2) : 1
+          ctx.save(); ctx.translate(pos.x, pos.y); ctx.scale(pop, pop); ctx.rotate(s * 0.2); drawPocket(ctx); ctx.restore()
+        }
+        // güve: cepten çıkıp kanat çırparak yükselir
+        if (t > 0.3) {
+          const u = t - 0.3, start = this.char.bodyToWorld({ x: -112, y: -10 })
+          const x = start.x + Math.sin(u * 5) * 40 + u * 60, y = start.y - u * 190
+          ctx.save(); ctx.translate(x, y); drawMoth(ctx, Math.sin(u * 40)); ctx.restore()
+        }
+        ctx.restore()
+      },
+    }
+    if (this.effects.length >= MAX_EFFECTS) this.effects.shift()
+    this.effects.push(self)
+    // tek kuruş düşer
+    this.schedule(0.6, () => {
+      const pos = this.char.bodyToWorld({ x: 112, y: -10 })
+      this.burst(pos, 1, 'dot', ['#FFC93C'], [60, 120], { gravity: 1400, size: 9, life: 1.2, max: 1.2 })
+      this.hooks.sound('cash', 0.4)
+    })
+    this.schedule(0.9, () => this.speak(['Cüzdanda güve var!', 'Son kuruşum…', 'Cebimde akrep yok, güve var!']))
+    this.cry(1.4, 5)
+  }
+
+  /** Senaryo balonu */
+  private speak(lines: readonly string[]) { this.bubble = { text: pick(lines), t: 0, life: 2 } }
 
   // ── Döngü ─────────────────────────────────────────────────────────────────────
   update(dt: number) {
@@ -999,4 +1147,53 @@ function drawBill(ctx: CanvasRenderingContext2D, p: Particle) {
     for (let i = 0; i < 3; i++) { const x = -w / 2 + (i + 0.8) * (w / 3.4); ctx.beginPath(); ctx.ellipse(x, top - 3, 3, 6, 0, 0, Math.PI * 2); ctx.fill() }
   }
   ctx.restore()
+}
+
+
+/** Akıllı telefon; ring ≥ 0 iken titreşim çizgileri ve arayan yazısı */
+function drawPhone(ctx: CanvasRenderingContext2D, ring: number) {
+  ctx.fillStyle = '#1B1F3B'; ctx.strokeStyle = '#0E1024'; ctx.lineWidth = 4
+  ctx.beginPath(); ctx.roundRect(-30, -56, 60, 112, 12); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#E9F1FF'; ctx.beginPath(); ctx.roundRect(-24, -46, 48, 88, 6); ctx.fill()
+  ctx.fillStyle = '#1B1F3B'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.font = `800 11px ${FONT_BODY}`; ctx.fillText('BANKA', 0, -26)
+  ctx.font = `800 9px ${FONT_BODY}`; ctx.fillText('arıyor…', 0, -12)
+  ctx.fillStyle = '#2FBF71'; ctx.beginPath(); ctx.arc(-11, 24, 8, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#E5323B'; ctx.beginPath(); ctx.arc(11, 24, 8, 0, Math.PI * 2); ctx.fill()
+  if (ring >= 0) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4; ctx.lineCap = 'round'
+    const k = (ring * 6) % 1
+    for (const s of [-1, 1]) for (let i = 0; i < 2; i++) {
+      const r = 46 + i * 14 + k * 8
+      ctx.beginPath(); ctx.arc(0, 0, r, s > 0 ? -0.5 : Math.PI - 0.5, s > 0 ? 0.5 : Math.PI + 0.5); ctx.stroke()
+    }
+  }
+}
+
+/** Kırmızı "HACİZLİ" etiketi, ipiyle */
+function drawSeizureTag(ctx: CanvasRenderingContext2D) {
+  ctx.strokeStyle = '#7A5A3A'; ctx.lineWidth = 3
+  ctx.beginPath(); ctx.moveTo(-58, -6); ctx.quadraticCurveTo(-80, -30, -70, -48); ctx.stroke()
+  ctx.fillStyle = '#D7263D'; ctx.strokeStyle = '#1B1F3B'; ctx.lineWidth = 4
+  ctx.beginPath(); ctx.roundRect(-62, -24, 124, 48, 8); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#FFF4E0'; ctx.beginPath(); ctx.arc(-48, 0, 5, 0, Math.PI * 2); ctx.fill()
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `400 22px ${FONT_DISPLAY}`; ctx.fillText('HACİZLİ', 8, 2, 96)
+}
+
+/** Dışarı çıkmış, boş cep */
+function drawPocket(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#F7F4EC'; ctx.strokeStyle = 'rgba(27,31,59,0.55)'; ctx.lineWidth = 3
+  ctx.beginPath(); ctx.moveTo(-26, -10); ctx.lineTo(26, -10); ctx.quadraticCurveTo(30, 34, 0, 44); ctx.quadraticCurveTo(-30, 34, -26, -10); ctx.closePath(); ctx.fill(); ctx.stroke()
+  ctx.strokeStyle = 'rgba(27,31,59,0.25)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(-18, 2); ctx.quadraticCurveTo(0, 30, 18, 2); ctx.stroke(); ctx.setLineDash([])
+}
+
+/** Güve: gövde + çırpan kanatlar (flap −1..1) */
+function drawMoth(ctx: CanvasRenderingContext2D, flap: number) {
+  ctx.fillStyle = '#B7A88E'; ctx.strokeStyle = 'rgba(27,31,59,0.5)'; ctx.lineWidth = 2
+  for (const s of [-1, 1]) {
+    ctx.save(); ctx.scale(s, 0.4 + 0.6 * Math.abs(flap))
+    ctx.beginPath(); ctx.ellipse(13, -4, 15, 11, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.restore()
+  }
+  ctx.fillStyle = '#6E6252'; ctx.beginPath(); ctx.ellipse(0, 0, 4, 11, 0, 0, Math.PI * 2); ctx.fill()
 }

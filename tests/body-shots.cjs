@@ -18,7 +18,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
   for (const [tip, label] of [['m', 'Erkek'], ['f', 'Kadın']]) {
     await p.getByRole('button', { name: label, exact: true }).click(); await sleep(2500)
     for (const [id, name] of [['ofis', 'Ofis'], ['ring', 'Boks Ringi'], ['mutfak', 'Mutfak'], ['sinif', 'Sınıf'], ['plaj', 'Plaj'], ['ev', 'Ev']]) {
-      await p.getByRole('button', { name: new RegExp('^\S*\s*' + name) }).first().click(); await sleep(1300)
+      await p.getByRole('button', { name: new RegExp('^\\S*\\s*' + name) }).first().click(); await sleep(1300)
       await stage.screenshot({ path: path.join(OUT, `govde-${tip}-${id}.png`) })
     }
   }

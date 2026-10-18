@@ -24,3 +24,16 @@ Sesler kırpıldı, seviyesi eşitlendi ve mono MP3'e çevrildi.
 
 - Kenney: https://kenney.nl/assets (CC0 1.0)
 - BigSoundBank / LaSonothèque: https://bigsoundbank.com (sayfalarda "CC0 (public domain)")
+
+## Kadın sesi, yuhalama, telefon
+
+| Dosya | Kaynak | Lisans |
+|---|---|---|
+| yellf-0…3 | OpenGameArt "Female Hurt Grunts & Groans" (nocturnalvanguard), https://opengameart.org/content/female-hurt-grunts-groans | CC0 |
+| yellf-4 | OpenGameArt "Female Scream 1" (nocturnalvanguard), https://opengameart.org/content/female-scream-1 | CC0 |
+| yellf-5 | OpenGameArt "Female high-pitched scream SFX" (wuxiascrub), https://opengameart.org/content/female-high-pitched-scream-sfx | CC0 |
+| whistle-* | BigSoundBank #1105 "Whistle, plastic #2", #1017 "Plastic Whistle #1" (yuhalamada ıslık) | CC0 |
+| ring-0 | BigSoundBank #0250 "Ringing landline #1" | CC0 |
+| fall-0 | BigSoundBank #2452 "Body Fall #1" | CC0 |
+
+Yuhalamanın "buuu" korosu kayıt değil, Web Audio ile üretilir. Kadın kahkahası için ayrı kayıt yok: giggle-* daha ince (1,3× hızlı) çalar.
