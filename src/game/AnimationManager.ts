@@ -17,8 +17,6 @@ export interface AnimHooks {
   shake: (amount: number) => void
   /** Sahneyi coştur (0..1): kalabalık, saat, tablo… */
   excite: (amount: number) => void
-  /** Konuşma balonu açıldı (oyunda karakter bunu sesli söyler) */
-  bubble?: (text: string) => void
 }
 
 type PShape = 'dot' | 'foam' | 'cream' | 'drop' | 'confetti' | 'spark' | 'stream' | 'bill' | 'flame' | 'smoke'
@@ -151,7 +149,6 @@ export class AnimationManager {
     const i = pickIndexAvoiding(list.length, this.lastBubble.get(tool) ?? -1)
     this.lastBubble.set(tool, i)
     this.bubble = { text: list[i], t: 0, life: 1.7 }
-    this.hooks.bubble?.(list[i])
   }
 
   /** Ortama özgü laf (boşta beklerken de söylenir) */
@@ -159,10 +156,9 @@ export class AnimationManager {
     const lines = sceneById(this.char.look.scene).lines
     this.lastLine = pickIndexAvoiding(lines.length, this.lastLine)
     this.bubble = { text: lines[this.lastLine], t: 0, life: 2.2 }
-    this.hooks.bubble?.(lines[this.lastLine])
   }
 
-  /** Kışkırtma: balon (sesi oyun motoru verir) */
+  /** Kışkırtma balonu */
   showBubble(text: string, life = 2.4) { this.bubble = { text, t: 0, life } }
 
   /** Her 10 komboda: karakter nakavt olur (yıldızlar, sersem gözler, konfeti) */

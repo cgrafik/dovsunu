@@ -7,7 +7,7 @@ import { SCENES, drawSceneBack, drawSceneFront, sceneById } from './scenes'
 import type { ScoreManager } from './ScoreManager'
 import type { SoundManager } from './SoundManager'
 import { toolById } from './tools'
-import { TAUNTS, Voice } from './Voice'
+import { TAUNTS } from './taunts'
 import { WORLD_H, WORLD_W, type CharacterLook, type FaceAsset, type ToolId, type Vec } from './types'
 
 export type EngineMode = 'play' | 'preview' | 'demo'
@@ -51,10 +51,11 @@ export class GameEngine {
   private finished = false
   private prevMult = 1
   private ro: ResizeObserver
-  private voice: Voice
   /** Kışkırtma zamanlaması */
   private startTauntIn = 1.3
   private talkFlap = 0
+  /** Laf atarken ağız bu süre boyunca açılıp kapanır */
+  private talkFor = 0
   private lowTimeTaunted = false
   private lastTaunt = new Map<string, string>()
 
@@ -63,12 +64,10 @@ export class GameEngine {
     this.ctx = canvas.getContext('2d')!
     this.opts = opts
     this.char = new CharacterRenderer(opts.face, opts.look)
-    this.voice = new Voice(opts.sound)
     this.anim = new AnimationManager(this.char, {
       sound: (id, k) => { if (opts.mode !== 'demo') opts.sound.play(id, k) },
       shake: (a) => { this.shakeAmt = Math.min(22, this.shakeAmt + a) },
       excite: (a) => { this.excite = Math.min(1, this.excite + a) },
-      bubble: (text) => { if (opts.mode === 'play') this.voice.say(text) },
     }, opts.reducedMotion)
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
@@ -90,7 +89,6 @@ export class GameEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.anim.clear()
     this.char.dispose()
-    this.voice.stop()
   }
 
   setLook(look: CharacterLook) { this.char.look = look }
@@ -205,7 +203,7 @@ export class GameEngine {
     this.raf = requestAnimationFrame(this.frame)
   }
 
-  /** Kışkırt: balon + ses, konuşurken ağız oynar */
+  /** Kışkırt: balon çıkar, karakter konuşur gibi ağzını oynatır */
   private taunt(kind: keyof typeof TAUNTS) {
     const list = TAUNTS[kind]
     const last = this.lastTaunt.get(kind)
@@ -213,13 +211,14 @@ export class GameEngine {
     const text = pick(options)
     this.lastTaunt.set(kind, text)
     this.anim.showBubble(text)
-    this.voice.say(text, { urgent: true })
+    this.talkFor = Math.min(1.6, 0.35 + text.length * 0.035)
   }
 
   private update(dt: number) {
     this.char.update(dt)
     // konuşurken çene açılıp kapanır
-    if (this.voice.speaking) {
+    if (this.talkFor > 0) {
+      this.talkFor -= dt
       this.talkFlap -= dt
       if (this.talkFlap <= 0) { this.char.pose.jaw.impulse(rand(4, 7)); this.talkFlap = rand(0.1, 0.16) }
     }
