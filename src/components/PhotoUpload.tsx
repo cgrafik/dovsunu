@@ -112,7 +112,11 @@ export function PhotoUpload({ onDone, onBack }: { onDone: (a: FaceAsset) => void
       setPhase({ k: 'busy', text: 'Saç ve kafa ayrılıyor…' })
       const head = renderCrop(source, { ...crop, w: crop.w * HEAD_EXPAND }, Math.round(FACE_PX_W * HEAD_EXPAND))
       const person = await segmentPerson(head)
-      if (person) { faceCanvas.width = 0; onDone(buildFaceAsset(head, features, person, HEAD_EXPAND)); return }
+      if (person) {
+        const asset = buildFaceAsset(head, features, person, HEAD_EXPAND)
+        asset.oval = buildFaceAsset(faceCanvas, features)
+        onDone(asset); return
+      }
       head.width = 0
     }
     onDone(buildFaceAsset(faceCanvas, features))

@@ -16,7 +16,7 @@ import { useReducedMotion } from './hooks/useReducedMotion'
 
 type Screen = 'start' | 'upload' | 'setup' | 'game' | 'results'
 
-const DEFAULT_LOOK: CharacterLook = { cartoon: false, scene: SCENES[0].id, color: SCENES[0].color, name: '', body: 'm' }
+const DEFAULT_LOOK: CharacterLook = { cartoon: false, scene: SCENES[0].id, color: SCENES[0].color, name: '', body: 'm', headCut: true }
 
 export default function App() {
   const sound = useMemo(() => new SoundManager(), [])
@@ -52,6 +52,9 @@ export default function App() {
     if (b && !b.classList.contains('tool') && !b.disabled) sound.play('click')
   }
 
+  // "Saçıyla kes" kapalıysa oval yüz kullanılır
+  const shownFace = face && !look.headCut && face.oval ? face.oval : face
+
   return (
     <div className="app" onClickCapture={onClickCapture}>
       {screen === 'start' && (
@@ -62,11 +65,11 @@ export default function App() {
         <PhotoUpload onBack={() => setScreen('start')} onDone={a => { setFace(a); setScreen('setup') }} />
       )}
       {screen === 'setup' && face && (
-        <CharacterSetup face={face} look={look} sound={sound} reducedMotion={reducedMotion} onLook={setLook}
+        <CharacterSetup face={shownFace!} canHeadCut={!!face.oval} look={look} sound={sound} reducedMotion={reducedMotion} onLook={setLook}
           onPlay={() => setScreen('game')} onNewPhoto={() => { forgetPhoto(); setScreen('upload') }} />
       )}
       {screen === 'game' && face && (
-        <GameScreen face={face} look={look} sound={sound} score={score} reducedMotion={reducedMotion}
+        <GameScreen face={shownFace!} look={look} sound={sound} score={score} reducedMotion={reducedMotion}
           hardHidden={hardHidden} onViolence={() => setHardHidden(true)}
           onFinish={r => { setResult({ ...r, unlocked: addPoints(r.stats.score) }); setScreen('results') }} onExit={() => setScreen('setup')} />
       )}

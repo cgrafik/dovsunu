@@ -142,14 +142,49 @@ function headAlpha(W: number, H: number, person: Float32Array, mesh: readonly Ve
   }
   const cut = new Float32Array(W)
   for (let x = 0; x < W; x++) cut[x] = cutAt(x)
+
+  // 1) Yüz ovali her zaman dolu: kişi ayırıcı gözlük, sakal ya da parlak ışıkta yüzden parça koparsa bile delik kalmaz
+  const ovalPts = LOOP_FACE_OVAL.map(i => t(mesh[i]))
+  const oc = document.createElement('canvas'); oc.width = W; oc.height = H
+  const octx = oc.getContext('2d', { willReadFrequently: true })!
+  octx.filter = `blur(${Math.max(2, W * 0.006)}px)`
+  octx.fillStyle = '#000'; octx.beginPath()
+  ovalPts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)))
+  octx.closePath(); octx.fill()
+  const oval = octx.getImageData(0, 0, W, H).data
+  oc.width = 0
+
+  // 2) Kişi haritasını yumuşat (tırtıklı kenar kalmasın): iki geçiş 3×3 kutu bulanıklığı
+  const blur = (src: Float32Array) => {
+    const out = new Float32Array(W * H)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let s = 0, n = 0
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        const xx = x + i, yy = y + j
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H) { s += src[yy * W + xx]; n++ }
+      }
+      out[y * W + x] = s / n
+    }
+    return out
+  }
+  const soft = blur(blur(person))
+
+  // 3) Kafanın çevresiyle sınırla: yandaki kişiler, omuzlar, arka plandaki eşyalar kesime karışmaz
+  const fc = { x: ovalPts.reduce((s, p) => s + p.x, 0) / ovalPts.length, y: ovalPts.reduce((s, p) => s + p.y, 0) / ovalPts.length }
+  const faceW = Math.abs(earR.x - earL.x), rx = faceW * 1.0, ry = faceH * 1.05, cy = fc.y - faceH * 0.12
+
   const fade = faceH * 0.035, edge = Math.max(3, W * 0.012)
   const a = new Float32Array(W * H)
   for (let y = 0; y < H; y++) {
     const ey = smoothstep(0, edge, y)
     for (let x = 0; x < W; x++) {
+      const i = y * W + x
       const ex = smoothstep(0, edge, x) * smoothstep(0, edge, W - 1 - x)
       const below = 1 - smoothstep(cut[x] - fade, cut[x] + fade, y)
-      a[y * W + x] = smoothstep(0.3, 0.7, person[y * W + x]) * below * ey * ex
+      const r = Math.hypot((x - fc.x) / rx, (y - cy) / ry)
+      const near = 1 - smoothstep(0.9, 1.05, r)
+      const p = Math.max(smoothstep(0.25, 0.65, soft[i]) * near, oval[i * 4 + 3] / 255)
+      a[i] = p * below * ey * ex
     }
   }
   return a
@@ -187,6 +222,7 @@ export function buildFaceAsset(face: HTMLCanvasElement, features: FaceFeatures, 
 export function disposeFaceAsset(a: FaceAsset | null) {
   if (!a) return
   for (const c of [a.natural, a.cartoon]) { c.width = 0; c.height = 0 }
+  if (a.oval) disposeFaceAsset(a.oval)
 }
 
 /** Fotoğraf yokken (açılış ekranı) kullanılan çizim maskot yüzü: "Tayfun" */

@@ -33,6 +33,8 @@ export interface FaceAsset {
   expand: number
   /** Saçıyla tüm kafa kesildi mi (true → çizilmiş kulak ve oval taban gerekmez) */
   cutout: boolean
+  /** Tüm kafa kesiminin yanında hazırlanan oval yüz (kurulumda "Saçıyla kes" kapatılınca kullanılır) */
+  oval?: FaceAsset
 }
 
 export type ToolId = 'slap' | 'punch' | 'slipper' | 'sponge' | 'pie' | 'water' | 'dizzy' | 'tickle' | 'shock' | 'loan' | 'pillow' | 'fish' | 'goldslipper' | 'spider' | 'confetti' | 'flour' | 'tape' | 'salon'
@@ -49,6 +51,8 @@ export interface CharacterLook {
   name: string
   /** Gerçekçi gövde: erkek / kadın */
   body: 'm' | 'f'
+  /** Saçıyla tüm kafa (false → yalnızca oval yüz) */
+  headCut: boolean
 }
 
 /** Karakterin o anki ifadesi (yüzün üstüne çizilen çizgi film katmanları) */

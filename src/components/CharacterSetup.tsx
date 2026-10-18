@@ -8,6 +8,8 @@ import { SoundControl } from './SoundControl'
 
 interface Props {
   face: FaceAsset
+  /** Tüm kafa kesimi var mı (yoksa "Saçıyla kes" seçeneği gösterilmez) */
+  canHeadCut: boolean
   look: CharacterLook
   sound: SoundManager
   reducedMotion: boolean
@@ -22,7 +24,7 @@ const CARD_COLORS: Record<CharacterLook['scene'], [string, string]> = {
   school: ['#7FB08F', '#F2E6CC'], beach: ['#8FD3F5', '#F3D7A0'], home: ['#EBDCC6', '#C9707C'],
 }
 
-export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPlay, onNewPhoto }: Props) {
+export function CharacterSetup({ face, canHeadCut, look, sound, reducedMotion, onLook, onPlay, onNewPhoto }: Props) {
   useEffect(() => { preloadBodies(look.body) }, [look.body])
   return (
     <main className="screen">
@@ -62,6 +64,12 @@ export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPla
               <input type="text" value={look.name} maxLength={12} placeholder="ADI"
                 onChange={e => onLook({ ...look, name: e.target.value.replace(/[^\p{L}\p{N} .-]/gu, '').toLocaleUpperCase('tr') })} />
             </label>
+            {canHeadCut && (
+              <label className="toggle" style={{ marginTop: 10 }}>
+                <span>Saçıyla kes <span className="muted" style={{ fontWeight: 600 }}>(kapalıysa yalnızca yüz)</span></span>
+                <input type="checkbox" checked={look.headCut} onChange={e => onLook({ ...look, headCut: e.target.checked })} />
+              </label>
+            )}
             <label className="toggle" style={{ marginTop: 10 }}>
               <span>Çizgi film filtresi <span className="muted" style={{ fontWeight: 600 }}>(yüzü karikatürleştirir)</span></span>
               <input type="checkbox" checked={look.cartoon} onChange={e => onLook({ ...look, cartoon: e.target.checked })} />
