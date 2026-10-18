@@ -11,9 +11,11 @@ interface Props {
   reducedMotion: boolean
   onStart: () => void
   onHow: () => void
+  /** Arkadaşın meydan okuma skoru (yoksa 0) */
+  target: number
 }
 
-export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Props) {
+export function StartScreen({ sound, look, reducedMotion, target, onStart, onHow }: Props) {
   // Fotoğraf yokken önizleme: çizim maskot ortamları gezerek kendi kendine "oynar" (sessiz demo)
   const mascot = useMemo(() => createMascotFace(), [])
   const demoLook = useMemo(() => ({ ...look, cartoon: false, name: 'TAYFUN' }), [look])
@@ -34,6 +36,7 @@ export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Prop
             Yüklediğin yüz karaktere uyarlanır. Ofiste, ringde, mutfakta, sınıfta, plajda ya da evde:
             tokat, boks eldiveni, terlik, kremalı pasta… 60 saniyede en yüksek komboyu yap, nakavt et!
           </p>
+          {target > 0 && <div className="challenge" role="status">🎯 Arkadaşın <b>{target.toLocaleString('tr-TR')}</b> puan yaptı. Geçebilir misin?</div>}
           <div className="row">
             <button className="btn big red" onClick={onStart}>Oyuna Başla</button>
             <button className="btn big cream" onClick={onHow}>Nasıl Oynanır?</button>

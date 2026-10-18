@@ -6,6 +6,7 @@ import { clamp, pick, rand } from './math'
 import { SCENES, drawSceneBack, drawSceneFront, sceneById } from './scenes'
 import type { ScoreManager } from './ScoreManager'
 import type { SoundId, SoundManager } from './SoundManager'
+import { isUnlocked } from './progress'
 import { toolById } from './tools'
 import { TAUNTS } from './taunts'
 import { WORLD_H, WORLD_W, type CharacterLook, type FaceAsset, type ToolId, type Vec } from './types'
@@ -137,6 +138,10 @@ export class GameEngine {
     const now = performance.now()
     if (now < (this.readyAt.get(tool) ?? 0)) return false
     const def = toolById(tool)
+    if (!isUnlocked(def)) {
+      this.anim.floater(`🔒 ${def.label}: toplam ${def.unlockAt!.toLocaleString('tr-TR')} puanda açılır`, { x: 400, y: 320 }, '#FFC93C')
+      return false
+    }
     if (this.char.look.body === 'f' && !def.soft) {
       this.readyAt.set(tool, now + 900)
       this.idleIn = rand(5, 8)

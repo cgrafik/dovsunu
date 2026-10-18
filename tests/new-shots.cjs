@@ -46,7 +46,34 @@ const tool = (p, name) => p.getByRole('button', { name: new RegExp(name) }).firs
       await p.screenshot({ path: path.join(OUT, `yeni-2-kredi-${i + 1}.png`) })
       await sleep(1000)
     }
+    // şiddetsiz şakalar
+    for (const [name, file, wait] of [['Örümcek Şakası', 'sakalar-orumcek', 800], ['Konfeti Topu', 'sakalar-konfeti', 500], ['Un Torbası', 'sakalar-un', 700]]) {
+      await tool(p, name); await sleep(wait)
+      await p.screenshot({ path: path.join(OUT, `yeni-5-${file}.png`) })
+      await sleep(1500)
+    }
+    // kilitli araç: puan vermez, uyarı çıkar
+    const sl = await score(p)
+    await tool(p, 'Yastık'); await sleep(500)
+    ok(await score(p) === sl, 'kilitli yastık puan vermedi')
+    await p.screenshot({ path: path.join(OUT, 'yeni-6-kilitli.png') })
+    // turu bitir: sonuç ekranı (rekor, ilerleme, meydan okuma)
+    await p.getByRole('button', { name: /Bitir/ }).click()
+    await p.getByRole('button', { name: /Meydan Oku/ }).waitFor({ timeout: 15000 })
+    ok(await p.getByText('Yeni rekor!').count() > 0, 'sonuç: yeni rekor formu çıktı')
+    await p.getByLabel('Rekor için adın').fill('Test')
+    await p.getByRole('button', { name: 'Kaydet' }).click(); await sleep(300)
+    ok(await p.locator('.record-list li').count() >= 1, 'sonuç: rekor tabloya yazıldı')
+    await p.screenshot({ path: path.join(OUT, 'yeni-7-sonuc.png'), fullPage: true })
     ok(!errors.length, 'erkek: sayfa hatası yok' + (errors.length ? ' — ' + errors.join(' | ') : ''))
+    await p.context().close()
+  }
+  // 1b) meydan okuma linki
+  {
+    const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true })).newPage()
+    await p.goto(URL + '?hedef=1234', { waitUntil: 'networkidle' }); await sleep(800)
+    ok(await p.getByText('Arkadaşın').count() > 0, 'meydan okuma: açılışta hedef görünüyor')
+    await p.screenshot({ path: path.join(OUT, 'yeni-8-hedef.png') })
     await p.context().close()
   }
   // 2) kadın: sert araç engellenir, hafif araç çalışır

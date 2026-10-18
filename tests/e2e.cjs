@@ -78,9 +78,9 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
   await noOverflow('oyun')
   const v0 = await voices()
   let last = 0
-  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü', 'Elektrik', 'Kredi Çek']
+  const tools = ['Tokat', 'Boks Eldiveni', 'Terlik', 'Sünger Sopa', 'Kremalı Pasta', 'Su Tabancası', 'Lastik Tavuk', 'Gıdıklama Tüyü', 'Elektrik', 'Kredi Çek', 'Örümcek Şakası', 'Konfeti Topu', 'Un Torbası']
   for (const [i, t] of tools.entries()) {
-    await p.getByRole('button', { name: new RegExp(t) }).click()
+    await p.getByRole('button', { name: new RegExp('^' + t) }).click()
     await sleep(300); await shot(`6-arac-${i + 1}`)
     await sleep(700)
     const s = await scoreText()

@@ -37,3 +37,4 @@ Sesler kırpıldı, seviyesi eşitlendi ve mono MP3'e çevrildi.
 | fall-0 | BigSoundBank #2452 "Body Fall #1" | CC0 |
 
 Yuhalamanın "buuu" korosu kayıt değil, Web Audio ile üretilir. Kadın kahkahası için ayrı kayıt yok: giggle-* daha ince (1,3× hızlı) çalar.
+| horn-0 | BigSoundBank #1553 "Party horn #1" (konfeti topu) | CC0 |

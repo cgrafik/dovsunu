@@ -11,7 +11,7 @@ export type SoundId =
   | 'score' | 'combo' | 'milestone' | 'dizzy' | 'boing' | 'whoosh' | 'bell'
   | 'zap' | 'buzz' | 'fire' | 'stamp' | 'cash'
   /** Kadın karakterin sesleri, yuhalama, telefon zili, yere düşme */
-  | 'yellF' | 'giggleF' | 'boo' | 'whistle' | 'ring' | 'fall'
+  | 'yellF' | 'giggleF' | 'boo' | 'whistle' | 'ring' | 'fall' | 'horn' | 'sneeze'
 
 type Voice = (s: SoundManager, t: number, k: number) => number   // dönüş: sesin süresi (sn)
 
@@ -21,7 +21,7 @@ const BASE = import.meta.env.BASE_URL
 /** Kayıt dosyaları: public/sfx/<ad>-<n>.mp3 (n adet) */
 const FILES: Record<string, number> = {
   slap: 5, punch: 5, bonk: 4, splat: 2, splash: 4, giggle: 4, cheer: 2, zap: 4, buzz: 2, fire: 2, stamp: 3, cash: 3,
-  whoosh: 4, yell: 1, thump: 5, thud: 4, yellf: 6, whistle: 3, ring: 1, fall: 1,
+  whoosh: 4, yell: 1, thump: 5, thud: 4, yellf: 6, whistle: 3, ring: 1, fall: 1, horn: 1,
 }
 interface Layer { file: string; rate?: number; gain?: number; delay?: number }
 /**
@@ -50,6 +50,7 @@ const SAMPLES: Partial<Record<SoundId, { layers: Layer[]; boom?: number; rateJit
   whistle: { layers: [{ file: 'whistle', gain: 0.45 }], rateJitter: 0.12 },
   ring: { layers: [{ file: 'ring', gain: 0.6 }] },
   fall: { layers: [{ file: 'fall', gain: 1 }, { file: 'thud', rate: 0.7, gain: 0.6 }], boom: 0.3 },
+  horn: { layers: [{ file: 'horn', gain: 0.7 }] },
 }
 const PREF_KEY = 'saplak_ses'
 
@@ -84,14 +85,14 @@ export class SoundManager {
     try { localStorage.setItem(PREF_KEY, JSON.stringify(this.settings)) } catch { /* gizli mod */ }
     this.listeners.forEach(f => f())
   }
-  setMuted(muted: boolean) { this.settings = { ...this.settings, muted }; this.applyGain(); this.emit() }
+  setMuted(muted: boolean) { this.settings = { ...this.settings, muted }; this.applyGain(); this.emit(); this.syncMusic() }
   setMusic(on: boolean) { this.settings = { ...this.settings, music: on }; this.emit(); this.syncMusic() }
 
   /** Oyun ekranı müziği ister/bırakır; çalması ayarlara ve tarayıcı iznine bağlıdır */
   wantMusic(on: boolean) { this.musicWanted = on; this.syncMusic() }
 
   private syncMusic() {
-    const ok = this.musicWanted && this.settings.music && !!this.ctx && !!this.master && this.ctx.state === 'running'
+    const ok = this.musicWanted && this.settings.music && !this.settings.muted && !!this.ctx && !!this.master && this.ctx.state === 'running'
     if (ok && !this.music.playing) this.music.start(this.ctx!, this.master!)
     else if (!ok && this.music.playing) this.music.stop()
   }
@@ -440,4 +441,12 @@ const VOICES: Record<SoundId, Voice[]> = {
   whistle: [(s, t) => { s.tone('sine', 2500, 2900, t, 0.5, 0.12, { vibrato: [30, 120] }); return 0.55 }],
   ring: [(s, t) => { for (let i = 0; i < 2; i++) { s.tone('sine', 440, 440, t + i * 0.5, 0.35, 0.1, { vibrato: [20, 40] }); s.tone('sine', 480, 480, t + i * 0.5, 0.35, 0.08) } return 1 }],
   fall: [(s, t) => { s.tone('sine', 120, 40, t, 0.3, 0.9); s.noiseBurst(t, 0.2, 0.5, 'lowpass', 900, 150); return 0.35 }],
+  horn: [(s, t) => { s.tone('sawtooth', 520, 560, t, 0.6, 0.14, { vibrato: [14, 30] }); return 0.65 }],
+  // hapşırma: "ha… ha…" (formant) + sert "ÇUU" (gürültü patlaması)
+  sneeze: [(s, t) => {
+    s.tone('sawtooth', 300, 360, t, 0.18, 1, { attack: 0.05, dest: s.formant(t, 0.2, 750, 1200, 0.18) })
+    s.tone('sawtooth', 330, 400, t + 0.28, 0.2, 1, { attack: 0.05, dest: s.formant(t + 0.28, 0.22, 750, 1200, 0.2) })
+    s.noiseBurst(t + 0.62, 0.22, 0.7, 'bandpass', 3200, 1400, 0.9)
+    return 0.9
+  }],
 }

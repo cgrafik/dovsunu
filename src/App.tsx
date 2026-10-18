@@ -4,6 +4,8 @@ import { GameScreen } from './components/GameScreen'
 import { HowToPlay } from './components/HowToPlay'
 import { PhotoUpload } from './components/PhotoUpload'
 import { ResultsScreen } from './components/ResultsScreen'
+import { addPoints } from './game/progress'
+import type { ToolDef } from './game/tools'
 import { StartScreen } from './components/StartScreen'
 import { disposeFaceAsset } from './face/faceAsset'
 import { ScoreManager, type ScoreSnapshot } from './game/ScoreManager'
@@ -24,7 +26,9 @@ export default function App() {
   const [how, setHow] = useState(false)
   const [face, setFace] = useState<FaceAsset | null>(null)
   const [look, setLook] = useState<CharacterLook>(DEFAULT_LOOK)
-  const [result, setResult] = useState<{ image: string; stats: ScoreSnapshot } | null>(null)
+  // meydan okuma linki: ?hedef=1234 (arkadaşın skoru)
+  const [target] = useState(() => { const v = Number(new URLSearchParams(location.search).get('hedef')); return Number.isFinite(v) && v > 0 ? Math.min(Math.round(v), 999999) : 0 })
+  const [result, setResult] = useState<{ image: string; stats: ScoreSnapshot; unlocked: ToolDef[] } | null>(null)
 
   // Tarayıcı kuralı: ses ancak ilk dokunuştan sonra açılabilir
   useEffect(() => {
@@ -49,7 +53,7 @@ export default function App() {
   return (
     <div className="app" onClickCapture={onClickCapture}>
       {screen === 'start' && (
-        <StartScreen sound={sound} look={look} reducedMotion={reducedMotion}
+        <StartScreen sound={sound} look={look} reducedMotion={reducedMotion} target={target}
           onStart={() => setScreen(face ? 'setup' : 'upload')} onHow={() => setHow(true)} />
       )}
       {screen === 'upload' && (
@@ -61,10 +65,10 @@ export default function App() {
       )}
       {screen === 'game' && face && (
         <GameScreen face={face} look={look} sound={sound} score={score} reducedMotion={reducedMotion}
-          onFinish={r => { setResult(r); setScreen('results') }} onExit={() => setScreen('setup')} />
+          onFinish={r => { setResult({ ...r, unlocked: addPoints(r.stats.score) }); setScreen('results') }} onExit={() => setScreen('setup')} />
       )}
       {screen === 'results' && result && (
-        <ResultsScreen image={result.image} stats={result.stats} defaultName={look.name}
+        <ResultsScreen image={result.image} stats={result.stats} defaultName={look.name} unlocked={result.unlocked} target={target}
           onReplay={() => { setResult(null); setScreen('game') }}
           onNewPhoto={() => { forgetPhoto(); setScreen('upload') }}
           onMenu={() => { forgetPhoto(); setScreen('start') }} />

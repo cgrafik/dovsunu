@@ -251,8 +251,8 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 
 /* araç çubuğu */
 .tools-wrap { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.tools { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
-@media (max-width: 560px) { .tools { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; } }
+.tools { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding-bottom: 6px; }
+@media (max-width: 560px) { .tools { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; } .tool { min-height: 56px; padding: 4px 2px; } .tool .label { font-size: 11px; } .tool .emoji { font-size: 22px; } }
 @media (min-width: 900px) and (min-aspect-ratio: 1/1) {
   .tools { grid-template-columns: 1fr; align-content: start; }
   .tool { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 56px; padding: 6px 14px; }
@@ -326,3 +326,17 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 .record-list .medal { font-size: 22px; }
 .record-list .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-list .pts { font-variant-numeric: tabular-nums; }
+
+/* kilitli araç */
+.tool.locked { filter: grayscale(0.9); opacity: 0.7; }
+.tool.locked .label { font-variant-numeric: tabular-nums; }
+/* ilerleme + açılan araç */
+.unlocked-banner { background: var(--sun); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; padding: 10px 14px; font-weight: 800; animation: bump 0.4s var(--ease); }
+.progress .row { display: flex; justify-content: space-between; font-weight: 800; }
+.progress-bar { height: 12px; border-radius: 999px; background: rgba(255, 244, 224, 0.15); overflow: hidden; margin: 8px 0 6px; }
+.progress-bar span { display: block; height: 100%; background: var(--sun); transform-origin: left; }
+.small { font-size: 14px; }
+
+/* meydan okuma */
+.challenge { background: rgba(255, 201, 60, 0.16); border: 2px dashed var(--sun); border-radius: 14px; padding: 10px 14px; font-weight: 800; }
+.challenge.won { background: rgba(123, 228, 149, 0.2); border-color: #7BE495; }
