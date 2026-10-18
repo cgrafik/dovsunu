@@ -1,4 +1,4 @@
-# Şaplak Şov
+# Şamarmatik 3000
 
 Fotoğrafını yükle, yüz karaktere uyarlansın; ortamı seç (ofis, boks ringi, mutfak, sınıf, plaj, ev) ve
 tokat, boks eldiveni, terlik, sünger sopa, kremalı pasta, su tabancası, lastik tavuk, gıdıklama tüyüyle

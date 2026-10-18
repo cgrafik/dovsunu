@@ -1,4 +1,4 @@
-/* Şaplak Şov — oyuna özel tasarım sistemi */
+/* Şamarmatik 3000 — oyuna özel tasarım sistemi */
 :root {
   --ink: #1b1f3b;
   --ink-soft: #3a3f66;
@@ -75,7 +75,7 @@ img { display: block; max-width: 100%; }
   text-shadow: 0 5px 0 var(--tomato-dark), 0 9px 0 var(--ink), 0 14px 24px rgba(0, 0, 0, 0.45);
   -webkit-text-stroke: 2px var(--ink);
 }
-.logo .l1 { transform: rotate(-3deg); }
+.logo .l1 { transform: rotate(-3deg); font-size: clamp(34px, 9.4vw, 76px); }
 .logo .l2 { color: var(--cream); transform: rotate(2deg) translateX(6%); margin-top: 6px; }
 .logo .tag { display: inline-block; margin-top: 18px; padding: 6px 14px; border-radius: 999px; background: var(--ink); color: var(--cream); font-weight: 800; font-size: 14px; letter-spacing: 0.3px; }
 
@@ -314,3 +314,15 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 .body-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .body-pick .btn { --bg: var(--cream); --fg: var(--ink); --edge: var(--cream-dim); }
 .body-pick .btn[aria-pressed='true'] { --bg: var(--sun); --edge: #C9971F; }
+
+/* rekor tablosu (en iyi 3, cihazda) */
+.records .new-record { background: var(--sun); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; }
+.records .new-record-title { font-weight: 900; font-size: 18px; margin-bottom: 8px; }
+.records .record-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.records .record-form input { min-width: 0; font: inherit; font-weight: 800; padding: 10px 12px; border: 3px solid var(--ink); border-radius: 12px; }
+.record-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.record-list li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 12px; background: rgba(255, 244, 224, 0.08); font-weight: 800; }
+.record-list li.mine { background: rgba(255, 201, 60, 0.28); }
+.record-list .medal { font-size: 22px; }
+.record-list .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.record-list .pts { font-variant-numeric: tabular-nums; }

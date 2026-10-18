@@ -26,9 +26,9 @@ export function StartScreen({ sound, look, reducedMotion, onStart, onHow }: Prop
       <div className="start-grid">
         <div className="start-actions">
           <h1 className="logo">
-            <span className="l1">ŞAPLAK</span>
-            <span className="l2">ŞOV</span>
-            <span className="tag">Yüzünü yükle · ortamını seç · şaplağı bas!</span>
+            <span className="l1">ŞAMARMATİK</span>
+            <span className="l2">3000</span>
+            <span className="tag">Yüzü yükle · makineyi çalıştır · şamarı bas!</span>
           </h1>
           <p className="muted" style={{ maxWidth: 440, lineHeight: 1.5, margin: 0 }}>
             Yüklediğin yüz karaktere uyarlanır. Ofiste, ringde, mutfakta, sınıfta, plajda ya da evde:

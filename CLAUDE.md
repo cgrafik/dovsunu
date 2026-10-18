@@ -4,7 +4,7 @@ This file guides Claude Code when working in this repository.
 
 ## What this is
 
-**Şaplak Şov** is a browser arcade game. The player uploads a photo, and the face is mapped onto a cartoon character. The player picks a setting and hits the character with slapstick tools for 60 seconds to build combos.
+**Şamarmatik 3000** (renamed from "Şaplak Şov" on 2026-10-18; repo/URL `dovsunu`) is a browser arcade game. The player uploads a photo, and the face is mapped onto a cartoon character. The player picks a setting and hits the character with slapstick tools for 60 seconds to build combos.
 
 - **Language:** the UI, code comments and commit messages are in Turkish. Reply to the user in Turkish.
 - **Separate project:** this is independent of MenuHoop (`~/menuhoop`). Don't mix the two. The folder name `taraftar-arcade` is historical: the first version had a football-fan theme, which was replaced at the user's request.

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { MEDALS, loadRecords, rankFor, saveRecord, type RecordEntry } from '../game/records'
 import type { ScoreSnapshot } from '../game/ScoreManager'
 import { TOOLS } from '../game/tools'
 
@@ -10,12 +11,52 @@ const titleFor = (score: number) => [...TITLES].reverse().find(([min]) => score 
 interface Props {
   image: string
   stats: ScoreSnapshot
+  /** Rekor kaydında önerilen ad (tabeladaki ad) */
+  defaultName: string
   onReplay: () => void
   onNewPhoto: () => void
   onMenu: () => void
 }
 
-export function ResultsScreen({ image, stats, onReplay, onNewPhoto, onMenu }: Props) {
+/** Rekor tablosu: yeni rekorsa ad sorulur ve kaydedilir; en iyi 3 skor madalyalarla listelenir */
+function Records({ stats, defaultName }: { stats: ScoreSnapshot; defaultName: string }) {
+  const [rank] = useState(() => rankFor(stats.score))
+  const [name, setName] = useState(defaultName || '')
+  const [saved, setSaved] = useState<RecordEntry | null>(null)
+  const [list, setList] = useState(loadRecords)
+  const save = () => {
+    const entry = { name: name.trim().slice(0, 14) || 'Anonim', score: stats.score, combo: stats.maxCombo, date: new Date().toISOString() }
+    setList(saveRecord(entry)); setSaved(entry)
+  }
+  return (
+    <div className="panel records" style={{ textAlign: 'left' }}>
+      {rank >= 0 && !saved && (
+        <div className="new-record">
+          <div className="new-record-title">🏆 Yeni rekor! {MEDALS[rank]} {rank + 1}. sıra</div>
+          <form className="record-form" onSubmit={e => { e.preventDefault(); save() }}>
+            <input type="text" value={name} maxLength={14} placeholder="Adın" aria-label="Rekor için adın"
+              onChange={e => setName(e.target.value)} />
+            <button className="btn small red" type="submit">Kaydet</button>
+          </form>
+        </div>
+      )}
+      <h3>Rekorlar</h3>
+      {list.length === 0 && <p className="muted" style={{ margin: 0 }}>Henüz rekor yok. İlk rekoru sen kır!</p>}
+      <ol className="record-list">
+        {list.map((r, i) => (
+          <li key={r.date + i} className={saved && r.date === saved.date ? 'mine' : ''}>
+            <span className="medal" aria-hidden>{MEDALS[i]}</span>
+            <span className="who">{r.name}</span>
+            <span className="pts">{r.score.toLocaleString('tr-TR')}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="small-print" style={{ margin: '6px 0 0' }}>Rekorlar yalnızca bu cihazda saklanır.</p>
+    </div>
+  )
+}
+
+export function ResultsScreen({ image, stats, defaultName, onReplay, onNewPhoto, onMenu }: Props) {
   const maxUse = Math.max(1, ...Object.values(stats.usage))
   const used = TOOLS.filter(t => stats.usage[t.id] > 0).length
   const heading = useRef<HTMLHeadingElement>(null)
@@ -24,7 +65,7 @@ export function ResultsScreen({ image, stats, onReplay, onNewPhoto, onMenu }: Pr
   const download = () => {
     const a = document.createElement('a')
     a.href = image
-    a.download = `saplak-sov-${stats.score}.png`
+    a.download = `samarmatik-3000-${stats.score}.png`
     a.click()
   }
 
@@ -43,6 +84,7 @@ export function ResultsScreen({ image, stats, onReplay, onNewPhoto, onMenu }: Pr
           <div className="stat"><div className="v">{stats.hits}</div><div className="k">Toplam vuruş</div></div>
           <div className="stat"><div className="v">{used}/{TOOLS.length}</div><div className="k">Kullanılan araç</div></div>
         </div>
+        <Records stats={stats} defaultName={defaultName} />
         <div className="panel" style={{ textAlign: 'left' }}>
           <h3>Kullanılan etkileşimler</h3>
           <div className="usage">

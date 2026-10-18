@@ -82,6 +82,7 @@ export class GameEngine {
     this.ro.observe(canvas)
     this.resize()
     if (opts.mode !== 'demo') canvas.addEventListener('pointerdown', this.onPointerDown)
+    if (opts.mode === 'play') opts.sound.wantMusic(true)
   }
 
   start() {
@@ -98,6 +99,7 @@ export class GameEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.anim.clear()
     this.char.dispose()
+    if (this.opts.mode === 'play') { this.opts.sound.wantMusic(false); this.opts.sound.music.tempo = 1 }
   }
 
   setLook(look: CharacterLook) { this.char.look = look }
@@ -277,6 +279,7 @@ export class GameEngine {
       if (after === 0) this.prevMult = 1
       if (ended) {
         this.finished = true
+        this.opts.sound.wantMusic(false)
         this.anim.showBanner(sceneById(this.char.look.scene).finish)
         this.opts.sound.play('bell')
         this.excite = 1
@@ -297,14 +300,14 @@ export class GameEngine {
     } else if (!this.finished) {
       this.idleIn -= dt
       if (this.idleIn <= 0 && !this.anim.busy) {
-        if (this.opts.mode === 'play' && Math.random() < 0.7) this.taunt('idle'); else this.anim.sayLine()
+        if (this.opts.mode === 'play' && Math.random() < 0.7) this.taunt(this.char.look.body === 'f' && Math.random() < 0.5 ? 'idleF' : 'idle'); else this.anim.sayLine()
         this.idleIn = rand(4, 7)
       }
       if (this.opts.mode === 'play') {
         this.startTauntIn -= dt
         if (this.startTauntIn <= 0 && this.startTauntIn > -dt) this.taunt('start')
         const left = this.opts.score?.getSnapshot().timeLeft ?? 99
-        if (!this.lowTimeTaunted && left <= 10 && left > 0) { this.lowTimeTaunted = true; this.taunt('lowTime') }
+        if (!this.lowTimeTaunted && left <= 10 && left > 0) { this.lowTimeTaunted = true; this.taunt('lowTime'); this.opts.sound.music.tempo = 1.18 }
       }
     }
   }

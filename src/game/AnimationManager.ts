@@ -47,17 +47,29 @@ const FONT_DISPLAY = '"Bungee", system-ui, sans-serif'
 const FONT_BODY = '"Nunito Variable", "Nunito", system-ui, sans-serif'
 
 const BUBBLES: Record<ToolId, readonly string[]> = {
-  slap: ['Ayyy!', 'Yanağım!', 'Bu neydi?!', 'Şaka mı bu?!'],
-  punch: ['Yıldızları gördüm!', 'Ufff!', 'Bu yumruk muydu?', 'Hakem!'],
-  slipper: ['Anne?!', 'Terlik mi uçtu?!', 'Kaçamadım!', 'Uslu duracağım!'],
-  sponge: ['Ayyy!', 'Kafam!', 'Yumuşakmış ama!', 'Yine mi?!'],
-  pie: ['Kremalı mı bu?!', 'Gözüm!', 'Diyetteyim!', 'Çilekli mi?'],
-  water: ['Islandım!', 'Hayır, saçım!', 'Soğuuk!', 'Yağmur mu yağıyor?'],
-  dizzy: ['Neredeyim?', 'Yıldızlar...', 'Bugün günlerden ne?', 'Tavuk mu konuştu?'],
-  tickle: ['Hahaha dur!', 'Gıdıklanıyorum!', 'Yapmaa!', 'Hihihi!'],
-  shock: ['Saçlarım!', 'Fişi çekin!', 'Bzzt bzzt!', 'Elektrik faturası kimde?!'],
-  loan: ['Benim imzam yok!', 'Ne kredisi?!', 'Faizi ne kadar?!', 'Paralarım yanıyor!'],
+  slap: ['Ayyy!', 'Yanağım!', 'Bu neydi?!', 'Şaka mı bu?!', 'Diğer yanağımı da mı çevireyim?', 'Elin ağırmış!', 'Annemi arıyorum!', 'Yanağım pancar oldu!', 'Bunu sakın paylaşma!', 'Avukatımla konuşun!', 'Beş parmak saydım!', 'Ses yankı yaptı!'],
+  punch: ['Yıldızları gördüm!', 'Ufff!', 'Bu yumruk muydu?', 'Hakem!', 'Dişlerim yerinde mi?', 'Gong çalsın artık!', 'Sağ kroşe mi o?!', 'Antrenörüm nerede?', 'Dur, bağcığın çözülmüş!', 'Ring dönüyor mu?', 'Kemerimi geri ver!'],
+  slipper: ['Anne?!', 'Terlik mi uçtu?!', 'Kaçamadım!', 'Uslu duracağım!', 'Terlik güdümlü mü?!', 'Bu terliği tanıyorum!', 'Odamı toplarım, söz!', 'Plastik ama acıtıyor!', 'Kaç numara bu?!', 'Annemin tekniği bu!'],
+  sponge: ['Ayyy!', 'Kafam!', 'Yumuşakmış ama!', 'Yine mi?!', 'Kafam süngere döndü!', 'Beynim titredi!', 'Sopa da mı sünger?', 'Tamam, uyandım!', 'Bulaşık süngeri mi o?!'],
+  pie: ['Kremalı mı bu?!', 'Gözüm!', 'Diyetteyim!', 'Çilekli mi?', 'Şekeri az olmuş!', 'Pastanın kalanı nerede?', 'Doğum günüm değil ki!', 'Kalorisini kim yakacak?!', 'Burnuma krema kaçtı!', 'Tarifini alabilir miyim?'],
+  water: ['Islandım!', 'Hayır, saçım!', 'Soğuuk!', 'Yağmur mu yağıyor?', 'Fönüm bozuldu!', 'Su faturasını sen öde!', 'Duş almıştım zaten!', 'Telefonum su geçirmez mi?!', 'Gözüme kaçtı!'],
+  dizzy: ['Neredeyim?', 'Yıldızlar...', 'Bugün günlerden ne?', 'Tavuk mu konuştu?', 'Gıdaak!', 'Tavuk bana mı vurdu?!', 'Kümese mi döndük?', 'Lastik ama iz bıraktı!', 'Yumurtası da var mı?'],
+  tickle: ['Hahaha dur!', 'Gıdıklanıyorum!', 'Yapmaa!', 'Hihihi!', 'Orası olmaz!', 'Hahaha, tamam tamam!', 'Nefes alamıyorum!', 'Kuş tüyü haksızlık!', 'Hahaha yeter!'],
+  shock: ['Saçlarım!', 'Fişi çekin!', 'Bzzt bzzt!', 'Elektrik faturasını merak ettim!', 'Telefonum şarj oldu!', 'Wi-Fi şifresi aklıma geldi!', 'Ampul gibi yandım!', 'Sigorta attı mı?!', 'Rezistans mıyım ben?!', 'Saçlarım fön çekti!', 'Elektrik şirketine şikâyet!', '220 volt sevgi!'],
+  loan: ['Benim imzam yok!', 'Ne kredisi?!', 'Faizi ne kadar?!', 'Paralarım yanıyor!', 'Kefilim kim?!', 'Taksit sayısı kaç?!', 'Ben sadece bakıyordum!', 'Faiz mi fasulye mi?!'],
 }
+/** Karşılık: karakter oyuncuya laf yetiştirir */
+const RETORTS = ['Senin sinirin şaka mı?', 'Ben de bu oyunu yükleyip intikamımı alacağım!', 'Sıra bende, bekle sen!', 'Bunu unutmayacağım!', 'Senin fotoğrafını ben de yüklerim!', 'Bunun hesabını vereceksin!', 'Rövanş istiyorum!'] as const
+/** Kadın karaktere özel tepkiler (yalnızca hafif şakalar ona yapılabilir) */
+const FEMALE: Partial<Record<ToolId, readonly string[]>> = {
+  pie: ['Makyajım bozulmadı di mi?', 'Fondötenim gitti!', 'Kirpiklerime krema kaçtı!', 'Bu pasta glütensiz mi bari?', 'Saçımı yeni yaptırmıştım!'],
+  water: ['Fönüm!', 'Rimelim aktı mı?!', 'Saçlarım kabardı şimdi!', 'Kuaförden yeni çıktım!', 'İyi ki makyajım su geçirmez!'],
+  tickle: ['Hihihi dur!', 'Tırnaklarımı yeni yaptırdım, dikkat!', 'Hahaha yapma!', 'Ben gıdıklanmam… hihihi!'],
+  loan: ['Kartımın limiti zaten dolu!', 'Tırnak randevum iptal mi şimdi?!', 'Alışverişe gidecektim!', 'Çantamı satmam, haberin olsun!'],
+}
+const FEMALE_ANY = ['Makyajım bozulmadı di mi?', 'Tırnaklarımı yeni yaptırdım!', 'Saçıma dokunma!', 'Rujum dağıldı mı?', 'Kirpiklerim yerinde mi?', 'Bu kombin bir daha giyilmez!'] as const
+/** Ara sıra karakter yalvarır (her araçtan sonra) */
+const BEGGING = ['Yapma!', 'Yeter!', 'Tamam tamam!', 'Pes ediyorum!', 'Aman, dur!', 'Mola! Mola!', 'Özür dilerim!', 'Tamam, haklısın!', 'Barışalım mı?', 'Bir nefes alayım!'] as const
 const TEXTS: Record<ToolId, readonly string[]> = {
   slap: ['ŞAAP!', 'ŞLAK!', 'TOKAT!', 'ŞAK!'],
   punch: ['POW!', 'GÜM!', 'DAN!', 'KÜT!'],
@@ -90,6 +102,9 @@ export class AnimationManager {
   private exprPrio = 0
   private lastLine = -1
   private lastBubble = new Map<ToolId, number>()
+  private lastBeg = -1
+  private lastRetort = -1
+  private lastFemale = -1
   private char: CharacterRenderer
   private hooks: AnimHooks
   reduced: boolean
@@ -147,7 +162,23 @@ export class AnimationManager {
 
   say(tool: ToolId, chance = 1) {
     if (Math.random() > chance) return
-    if (Math.random() < 0.3) { this.sayLine(); return }
+    if (Math.random() < 0.18) { this.sayLine(); return }
+    if (this.char.look.body === 'f' && Math.random() < 0.55) {
+      const list = [...(FEMALE[tool] ?? []), ...FEMALE_ANY]
+      this.lastFemale = pickIndexAvoiding(list.length, this.lastFemale)
+      this.bubble = { text: list[this.lastFemale], t: 0, life: 1.9 }
+      return
+    }
+    if (Math.random() < 0.15) {
+      this.lastRetort = pickIndexAvoiding(RETORTS.length, this.lastRetort)
+      this.bubble = { text: RETORTS[this.lastRetort], t: 0, life: 2.2 }
+      return
+    }
+    if (tool !== 'tickle' && Math.random() < 0.28) {
+      this.lastBeg = pickIndexAvoiding(BEGGING.length, this.lastBeg)
+      this.bubble = { text: BEGGING[this.lastBeg], t: 0, life: 1.6 }
+      return
+    }
     const list = BUBBLES[tool]
     const i = pickIndexAvoiding(list.length, this.lastBubble.get(tool) ?? -1)
     this.lastBubble.set(tool, i)

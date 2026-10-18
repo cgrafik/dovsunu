@@ -4,6 +4,7 @@
 // • Çeşitlilik: her sesin birkaç varyantı var; aynı varyant art arda çalmaz, perde rastgele ±%8 kayar.
 // • Koruma: aynı ses 60 ms içinde tekrar çalmaz, aynı anda en çok MAX_VOICES ses.
 import { pickIndexAvoiding, rand } from './math'
+import { Music } from './Music'
 
 export type SoundId =
   | 'click' | 'slap' | 'punch' | 'thwack' | 'bonk' | 'splat' | 'splash' | 'giggle' | 'yell' | 'cheer' | 'fail'
@@ -52,7 +53,7 @@ const SAMPLES: Partial<Record<SoundId, { layers: Layer[]; boom?: number; rateJit
 }
 const PREF_KEY = 'saplak_ses'
 
-export interface SoundSettings { muted: boolean; volume: number }
+export interface SoundSettings { muted: boolean; volume: number; music: boolean }
 
 export class SoundManager {
   ctx: AudioContext | null = null
@@ -63,12 +64,15 @@ export class SoundManager {
   private lastAt = new Map<SoundId, number>()
   private voices = 0
   private listeners = new Set<() => void>()
+  readonly music = new Music()
+  /** Oyun müzik istiyor (ses açılınca / izin gelince başlar) */
+  private musicWanted = false
   private buffers = new Map<string, AudioBuffer[]>()
   private lastLayer = new Map<string, number>()
   private loading = false
 
   constructor() {
-    let s: SoundSettings = { muted: false, volume: 0.7 }
+    let s: SoundSettings = { muted: false, volume: 0.7, music: true }
     try { const raw = localStorage.getItem(PREF_KEY); if (raw) s = { ...s, ...JSON.parse(raw) } } catch { /* gizli mod */ }
     this.settings = s
   }
@@ -81,6 +85,16 @@ export class SoundManager {
     this.listeners.forEach(f => f())
   }
   setMuted(muted: boolean) { this.settings = { ...this.settings, muted }; this.applyGain(); this.emit() }
+  setMusic(on: boolean) { this.settings = { ...this.settings, music: on }; this.emit(); this.syncMusic() }
+
+  /** Oyun ekranı müziği ister/bırakır; çalması ayarlara ve tarayıcı iznine bağlıdır */
+  wantMusic(on: boolean) { this.musicWanted = on; this.syncMusic() }
+
+  private syncMusic() {
+    const ok = this.musicWanted && this.settings.music && !!this.ctx && !!this.master && this.ctx.state === 'running'
+    if (ok && !this.music.playing) this.music.start(this.ctx!, this.master!)
+    else if (!ok && this.music.playing) this.music.stop()
+  }
   setVolume(volume: number) { this.settings = { ...this.settings, volume: Math.max(0, Math.min(1, volume)) }; this.applyGain(); this.emit() }
   private applyGain() {
     if (!this.master || !this.ctx) return
@@ -103,7 +117,8 @@ export class SoundManager {
       this.applyGain()
       void this.loadSamples()
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    if (this.ctx.state === 'suspended') void this.ctx.resume().then(() => this.syncMusic())
+    this.syncMusic()
   }
 
   /** Belleği bırak (uygulama kapanırken) */

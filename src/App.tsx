@@ -64,7 +64,7 @@ export default function App() {
           onFinish={r => { setResult(r); setScreen('results') }} onExit={() => setScreen('setup')} />
       )}
       {screen === 'results' && result && (
-        <ResultsScreen image={result.image} stats={result.stats}
+        <ResultsScreen image={result.image} stats={result.stats} defaultName={look.name}
           onReplay={() => { setResult(null); setScreen('game') }}
           onNewPhoto={() => { forgetPhoto(); setScreen('upload') }}
           onMenu={() => { forgetPhoto(); setScreen('start') }} />

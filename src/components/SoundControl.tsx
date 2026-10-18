@@ -31,6 +31,10 @@ export function SoundControl({ sound }: { sound: SoundManager }) {
               onChange={e => { sound.unlock(); sound.setVolume(Number(e.target.value)); if (s.muted) sound.setMuted(false) }}
               onPointerUp={() => sound.play('click')} />
           </label>
+          <label className="toggle" style={{ marginTop: 10 }}>
+            <span>Müzik</span>
+            <input type="checkbox" checked={s.music} onChange={e => { sound.unlock(); sound.setMusic(e.target.checked) }} />
+          </label>
         </div>
       )}
     </div>
