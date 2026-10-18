@@ -17,6 +17,10 @@ Sesler kırpıldı, seviyesi eşitlendi ve mono MP3'e çevrildi.
 | fire-* | BigSoundBank #1340 "Gasoline fire #1", #0004 "Match #1" | CC0 |
 | stamp-* | Kenney "Impact Sounds": impactWood_heavy_000–002 | CC0 |
 | cash-* | BigSoundBank #0193 "Coins #1" | CC0 |
+| whoosh-* | BigSoundBank #1795, #1796 "Whoosh", #0572, #0573 "Whoosh #1/#2" | CC0 |
+| yell-* | BigSoundBank #2361 "Cry of Pain" | CC0 |
+| thump-* | Kenney "Impact Sounds": impactPunch_medium_000–004 (vuruşlara tok katman) | CC0 |
+| thud-* | Kenney "Impact Sounds": impactSoft_medium_000–003 (vuruşlara tok katman) | CC0 |
 
 - Kenney: https://kenney.nl/assets (CC0 1.0)
 - BigSoundBank / LaSonothèque: https://bigsoundbank.com (sayfalarda "CC0 (public domain)")

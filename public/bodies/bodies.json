@@ -1,0 +1,98 @@
+{
+ "f-beach": {
+  "w": 480,
+  "h": 967,
+  "neckX": 236.7,
+  "neckW": 120.2,
+  "shoulderW": 477.3,
+  "keyed": 0
+ },
+ "f-home": {
+  "w": 480,
+  "h": 929,
+  "neckX": 238.4,
+  "neckW": 92.6,
+  "shoulderW": 415.5,
+  "keyed": 3
+ },
+ "f-kitchen": {
+  "w": 480,
+  "h": 865,
+  "neckX": 244.2,
+  "neckW": 124.8,
+  "shoulderW": 447.9,
+  "keyed": 0
+ },
+ "f-office": {
+  "w": 480,
+  "h": 989,
+  "neckX": 242.4,
+  "neckW": 116.8,
+  "shoulderW": 446.7,
+  "keyed": 0
+ },
+ "f-ring": {
+  "w": 480,
+  "h": 705,
+  "neckX": 245.3,
+  "neckW": 79.9,
+  "shoulderW": 341.5,
+  "keyed": 0
+ },
+ "f-school": {
+  "w": 480,
+  "h": 960,
+  "neckX": 244.6,
+  "neckW": 96.3,
+  "shoulderW": 443.1,
+  "keyed": 0
+ },
+ "m-beach": {
+  "w": 480,
+  "h": 898,
+  "neckX": 236.3,
+  "neckW": 109.8,
+  "shoulderW": 476.9,
+  "keyed": 0
+ },
+ "m-home": {
+  "w": 480,
+  "h": 896,
+  "neckX": 240.9,
+  "neckW": 106.5,
+  "shoulderW": 442.5,
+  "keyed": 0
+ },
+ "m-kitchen": {
+  "w": 480,
+  "h": 830,
+  "neckX": 243.4,
+  "neckW": 99.2,
+  "shoulderW": 437.2,
+  "keyed": 0
+ },
+ "m-office": {
+  "w": 480,
+  "h": 810,
+  "neckX": 242.5,
+  "neckW": 109,
+  "shoulderW": 444.4,
+  "keyed": 0
+ },
+ "m-ring": {
+  "w": 480,
+  "h": 743,
+  "neckX": 239.2,
+  "neckW": 91.8,
+  "shoulderW": 380,
+  "keyed": 0
+ },
+ "m-school": {
+  "w": 480,
+  "h": 808,
+  "neckX": 241.1,
+  "neckW": 111.5,
+  "shoulderW": 446.2,
+  "keyed": 0
+ }
+}

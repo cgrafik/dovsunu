@@ -65,7 +65,8 @@ const ok = (c, m) => { console.log(c ? 'OK  ' : 'HATA', m); if (!c) fails++ }
     await p.locator('.preview-stage canvas').click({ position: { x: 200, y: 200 } }); await sleep(450)
     await shot(`5-ortam-${id}`)
   }
-  await p.getByRole('button', { name: 'Mor' }).click()
+  await p.getByRole('button', { name: 'Kadın' }).click(); await sleep(900); await shot('5-govde-kadin')
+  await p.getByRole('button', { name: 'Erkek' }).click()
   await p.getByLabel('Çizgi film filtresi', { exact: false }).check(); await sleep(600)
   await shot('5-karakter-ozel')
   await p.getByLabel('Çizgi film filtresi', { exact: false }).uncheck()

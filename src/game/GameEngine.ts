@@ -7,6 +7,7 @@ import { SCENES, drawSceneBack, drawSceneFront, sceneById } from './scenes'
 import type { ScoreManager } from './ScoreManager'
 import type { SoundManager } from './SoundManager'
 import { toolById } from './tools'
+import { TAUNTS, Voice } from './Voice'
 import { WORLD_H, WORLD_W, type CharacterLook, type FaceAsset, type ToolId, type Vec } from './types'
 
 export type EngineMode = 'play' | 'preview' | 'demo'
@@ -50,16 +51,24 @@ export class GameEngine {
   private finished = false
   private prevMult = 1
   private ro: ResizeObserver
+  private voice: Voice
+  /** Kışkırtma zamanlaması */
+  private startTauntIn = 1.3
+  private talkFlap = 0
+  private lowTimeTaunted = false
+  private lastTaunt = new Map<string, string>()
 
   constructor(canvas: HTMLCanvasElement, opts: EngineOptions) {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')!
     this.opts = opts
     this.char = new CharacterRenderer(opts.face, opts.look)
+    this.voice = new Voice(opts.sound)
     this.anim = new AnimationManager(this.char, {
       sound: (id, k) => { if (opts.mode !== 'demo') opts.sound.play(id, k) },
       shake: (a) => { this.shakeAmt = Math.min(22, this.shakeAmt + a) },
       excite: (a) => { this.excite = Math.min(1, this.excite + a) },
+      bubble: (text) => { if (opts.mode === 'play') this.voice.say(text) },
     }, opts.reducedMotion)
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
@@ -81,6 +90,7 @@ export class GameEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.anim.clear()
     this.char.dispose()
+    this.voice.stop()
   }
 
   setLook(look: CharacterLook) { this.char.look = look }
@@ -109,6 +119,8 @@ export class GameEngine {
       const r = this.opts.score.hit(tool, now)
       if (!r) return false
       this.anim.trigger(tool, point, zone)
+      // ara sıra vuruşu küçümser: "Bu muydu?"
+      if (Math.random() < 0.12) setTimeout(() => { if (this.running && !this.finished) this.taunt('weak') }, 1100)
       const multTxt = r.multiplier > 1 ? `  ×${r.multiplier.toLocaleString('tr-TR')}` : ''
       // puan yazısı çizgi film yazısının (yukarıda) yanında, üst üste binmesin
       const side = point.x >= 400 ? 1 : -1
@@ -143,6 +155,7 @@ export class GameEngine {
   private miss(at: Vec) {
     const lost = this.opts.score?.miss() ?? 0
     this.opts.sound.play('whoosh')
+    if (Math.random() < 0.7) this.taunt('miss')
     this.anim.floater(lost >= 3 ? `Iska! Kombo ${lost} gitti` : 'Iska!', at, '#FFB4A8')
     this.prevMult = 1
   }
@@ -192,8 +205,24 @@ export class GameEngine {
     this.raf = requestAnimationFrame(this.frame)
   }
 
+  /** Kışkırt: balon + ses, konuşurken ağız oynar */
+  private taunt(kind: keyof typeof TAUNTS) {
+    const list = TAUNTS[kind]
+    const last = this.lastTaunt.get(kind)
+    const options = list.length > 1 ? list.filter(l => l !== last) : list
+    const text = pick(options)
+    this.lastTaunt.set(kind, text)
+    this.anim.showBubble(text)
+    this.voice.say(text, { urgent: true })
+  }
+
   private update(dt: number) {
     this.char.update(dt)
+    // konuşurken çene açılıp kapanır
+    if (this.voice.speaking) {
+      this.talkFlap -= dt
+      if (this.talkFlap <= 0) { this.char.pose.jaw.impulse(rand(4, 7)); this.talkFlap = rand(0.1, 0.16) }
+    }
     this.anim.update(dt)
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 60)
     this.excite = Math.max(0, this.excite - dt * 0.35)
@@ -206,6 +235,7 @@ export class GameEngine {
       if (before >= 5 && after === 0) {           // büyük kombo zaman aşımıyla bitti → "vah vah"
         this.opts.sound.play('fail')
         this.anim.floater('Kombo bitti!', { x: 400, y: 300 }, '#FFB4A8')
+        this.taunt('comboLost')
       }
       if (after === 0) this.prevMult = 1
       if (ended) {
@@ -229,7 +259,16 @@ export class GameEngine {
       }
     } else if (!this.finished) {
       this.idleIn -= dt
-      if (this.idleIn <= 0 && !this.anim.busy) { this.anim.sayLine(); this.idleIn = rand(6, 10) }
+      if (this.idleIn <= 0 && !this.anim.busy) {
+        if (this.opts.mode === 'play' && Math.random() < 0.7) this.taunt('idle'); else this.anim.sayLine()
+        this.idleIn = rand(4, 7)
+      }
+      if (this.opts.mode === 'play') {
+        this.startTauntIn -= dt
+        if (this.startTauntIn <= 0 && this.startTauntIn > -dt) this.taunt('start')
+        const left = this.opts.score?.getSnapshot().timeLeft ?? 99
+        if (!this.lowTimeTaunted && left <= 10 && left > 0) { this.lowTimeTaunted = true; this.taunt('lowTime') }
+      }
     }
   }
 

@@ -15,21 +15,32 @@ type Voice = (s: SoundManager, t: number, k: number) => number   // dönüş: se
 const MAX_VOICES = 24
 const BASE = import.meta.env.BASE_URL
 
-/** Kayıtlı sesler: public/sfx/<dosya>-<n>.mp3. rate: çalma hızı (terlik, tokat kaydını daha tok çalar) */
-const SAMPLES: Partial<Record<SoundId, { file: string; n: number; rate?: number; gain?: number }>> = {
-  slap: { file: 'slap', n: 5 },
-  thwack: { file: 'slap', n: 5, rate: 0.78 },
-  punch: { file: 'punch', n: 5 },
-  bonk: { file: 'bonk', n: 4 },
-  splat: { file: 'splat', n: 2 },
-  splash: { file: 'splash', n: 4, gain: 0.8 },
-  giggle: { file: 'giggle', n: 4, gain: 0.9 },
-  cheer: { file: 'cheer', n: 2, gain: 0.7 },
-  zap: { file: 'zap', n: 4 },
-  buzz: { file: 'buzz', n: 2, gain: 0.75 },
-  fire: { file: 'fire', n: 2, gain: 0.85 },
-  stamp: { file: 'stamp', n: 3 },
-  cash: { file: 'cash', n: 3, gain: 0.8 },
+/** Kayıt dosyaları: public/sfx/<ad>-<n>.mp3 (n adet) */
+const FILES: Record<string, number> = {
+  slap: 5, punch: 5, bonk: 4, splat: 2, splash: 4, giggle: 4, cheer: 2, zap: 4, buzz: 2, fire: 2, stamp: 3, cash: 3,
+  whoosh: 4, yell: 1, thump: 5, thud: 4,
+}
+interface Layer { file: string; rate?: number; gain?: number; delay?: number }
+/**
+ * Kayıttan çalan sesler. Vuruşlar katmanlıdır (oyunlarda vuruşu dolgun yapan yöntem): ana kayıt (şaklama) +
+ * tok darbe (thump/thud) + gerekirse alçak "güm" (boom: programatik, sn cinsinden süre). rate: çalma hızı.
+ */
+const SAMPLES: Partial<Record<SoundId, { layers: Layer[]; boom?: number; rateJitter?: number }>> = {
+  slap: { layers: [{ file: 'slap', gain: 1 }, { file: 'thump', rate: 1.35, gain: 0.55 }] },
+  thwack: { layers: [{ file: 'slap', rate: 0.78, gain: 0.95 }, { file: 'thud', gain: 0.7 }] },
+  punch: { layers: [{ file: 'punch', gain: 1 }, { file: 'thump', rate: 0.8, gain: 0.5 }], boom: 0.28 },
+  bonk: { layers: [{ file: 'bonk', gain: 1 }, { file: 'thud', rate: 0.85, gain: 0.5 }] },
+  splat: { layers: [{ file: 'splat', gain: 0.9 }, { file: 'thud', rate: 0.7, gain: 0.7 }, { file: 'splash', rate: 0.7, gain: 0.3, delay: 0.04 }] },
+  splash: { layers: [{ file: 'splash', gain: 0.8 }] },
+  giggle: { layers: [{ file: 'giggle', gain: 0.9 }] },
+  cheer: { layers: [{ file: 'cheer', gain: 0.7 }] },
+  yell: { layers: [{ file: 'yell', gain: 0.85 }], rateJitter: 0.18 },
+  whoosh: { layers: [{ file: 'whoosh', gain: 0.75 }] },
+  zap: { layers: [{ file: 'zap', gain: 1 }] },
+  buzz: { layers: [{ file: 'buzz', gain: 0.75 }] },
+  fire: { layers: [{ file: 'fire', gain: 0.85 }] },
+  stamp: { layers: [{ file: 'stamp', gain: 1 }, { file: 'thump', rate: 0.7, gain: 0.6 }], boom: 0.2 },
+  cash: { layers: [{ file: 'cash', gain: 0.8 }] },
 }
 const PREF_KEY = 'saplak_ses'
 
@@ -44,7 +55,8 @@ export class SoundManager {
   private lastAt = new Map<SoundId, number>()
   private voices = 0
   private listeners = new Set<() => void>()
-  private buffers = new Map<SoundId, AudioBuffer[]>()
+  private buffers = new Map<string, AudioBuffer[]>()
+  private lastLayer = new Map<string, number>()
   private loading = false
 
   constructor() {
@@ -101,24 +113,36 @@ export class SoundManager {
       if (!cache.has(url)) cache.set(url, fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(url)))).then(b => ctx.decodeAudioData(b)).catch(() => null))
       return cache.get(url)!
     }
-    await Promise.all(Object.entries(SAMPLES).map(async ([id, sp]) => {
-      const list = await Promise.all(Array.from({ length: sp.n }, (_, i) => load(`${BASE}sfx/${sp.file}-${i}.mp3`)))
+    await Promise.all(Object.entries(FILES).map(async ([file, n]) => {
+      const list = await Promise.all(Array.from({ length: n }, (_, i) => load(`${BASE}sfx/${file}-${i}.mp3`)))
       const ok = list.filter((b): b is AudioBuffer => !!b)
-      if (ok.length && this.ctx === ctx) this.buffers.set(id as SoundId, ok)
+      if (ok.length && this.ctx === ctx) this.buffers.set(file, ok)
     }))
   }
 
-  private playSample(id: SoundId, bufs: AudioBuffer[], intensity: number): number {
-    const ctx = this.ctx!, sp = SAMPLES[id]!
-    const i = pickIndexAvoiding(bufs.length, this.lastVariant.get(id) ?? -1)
-    this.lastVariant.set(id, i)
-    const src = ctx.createBufferSource(), g = ctx.createGain()
-    src.buffer = bufs[i]
-    src.playbackRate.value = (sp.rate ?? 1) * rand(0.93, 1.07)
-    g.gain.value = (sp.gain ?? 1) * Math.min(1.15, 0.75 + 0.25 * intensity)
-    src.connect(g).connect(this.master!)
-    src.start(ctx.currentTime + 0.005)
-    return bufs[i].duration / src.playbackRate.value
+  /** Bir sesin tüm katmanları yüklendiyse çal; süresini döner (yüklenmediyse null → programatik ses) */
+  private playSample(id: SoundId, intensity: number): number | null {
+    const sp = SAMPLES[id]
+    if (!sp || !sp.layers.every(l => this.buffers.has(l.file))) return null
+    const ctx = this.ctx!, t = ctx.currentTime + 0.005
+    const k = Math.min(1.15, 0.75 + 0.25 * intensity), j = sp.rateJitter ?? 0.07
+    let dur = 0
+    sp.layers.forEach((l, li) => {
+      const bufs = this.buffers.get(l.file)!
+      const key = `${id}:${li}`
+      const i = pickIndexAvoiding(bufs.length, this.lastLayer.get(key) ?? -1)
+      this.lastLayer.set(key, i)
+      const src = ctx.createBufferSource(), g = ctx.createGain()
+      src.buffer = bufs[i]
+      src.playbackRate.value = (l.rate ?? 1) * rand(1 - j, 1 + j)
+      g.gain.value = (l.gain ?? 1) * k
+      src.connect(g).connect(this.master!)
+      src.start(t + (l.delay ?? 0))
+      dur = Math.max(dur, (l.delay ?? 0) + bufs[i].duration / src.playbackRate.value)
+    })
+    // alçak "güm": vuruşa ağırlık verir (telefon hoparlöründe de duyulsun diye 90 Hz civarı)
+    if (sp.boom) this.tone('sine', 110, 42, t, sp.boom, 0.75 * k)
+    return dur
   }
 
   play(id: SoundId, intensity = 1) {
@@ -127,11 +151,10 @@ export class SoundManager {
     const now = performance.now()
     if (now - (this.lastAt.get(id) ?? 0) < 60 || this.voices >= MAX_VOICES) return
     this.lastAt.set(id, now)
-    const bufs = this.buffers.get(id)
-    if (bufs) {
+    const sampled = this.playSample(id, intensity)
+    if (sampled !== null) {
       this.voices++
-      const dur = this.playSample(id, bufs, intensity)
-      setTimeout(() => { this.voices = Math.max(0, this.voices - 1) }, (dur + 0.1) * 1000)
+      setTimeout(() => { this.voices = Math.max(0, this.voices - 1) }, (sampled + 0.1) * 1000)
       return
     }
     const variants = VOICES[id]

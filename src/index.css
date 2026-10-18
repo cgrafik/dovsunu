@@ -309,3 +309,8 @@ input[type='range'] { width: 100%; accent-color: var(--sun); height: 32px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+/* gövde seçimi (erkek / kadın) */
+.body-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.body-pick .btn { --bg: var(--cream); --fg: var(--ink); --edge: var(--cream-dim); }
+.body-pick .btn[aria-pressed='true'] { --bg: var(--sun); --edge: #C9971F; }

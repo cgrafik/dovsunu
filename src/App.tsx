@@ -14,7 +14,7 @@ import { useReducedMotion } from './hooks/useReducedMotion'
 
 type Screen = 'start' | 'upload' | 'setup' | 'game' | 'results'
 
-const DEFAULT_LOOK: CharacterLook = { cartoon: false, scene: SCENES[0].id, color: SCENES[0].color, name: '' }
+const DEFAULT_LOOK: CharacterLook = { cartoon: false, scene: SCENES[0].id, color: SCENES[0].color, name: '', body: 'm' }
 
 export default function App() {
   const sound = useMemo(() => new SoundManager(), [])

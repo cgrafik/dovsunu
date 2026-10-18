@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
+import { preloadBodies } from '../game/bodies'
 import type { SoundManager } from '../game/SoundManager'
 import type { CharacterLook, FaceAsset } from '../game/types'
-import { OUTFIT_COLORS, SCENES } from '../game/scenes'
+import { SCENES } from '../game/scenes'
 import { GameCanvas } from './GameCanvas'
 import { SoundControl } from './SoundControl'
 
@@ -21,6 +23,7 @@ const CARD_COLORS: Record<CharacterLook['scene'], [string, string]> = {
 }
 
 export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPlay, onNewPhoto }: Props) {
+  useEffect(() => { preloadBodies(look.body) }, [look.body])
   return (
     <main className="screen">
       <div className="topbar">
@@ -49,12 +52,10 @@ export function CharacterSetup({ face, look, sound, reducedMotion, onLook, onPla
             </div>
           </div>
           <div className="panel">
-            <h3>Kıyafet rengi</h3>
-            <div className="swatches" role="group" aria-label="Kıyafet renkleri">
-              {OUTFIT_COLORS.map(c => (
-                <button key={c.id} className="swatch" style={{ ['--a' as string]: c.hex, ['--b' as string]: c.hex }}
-                  aria-label={c.label} title={c.label} aria-pressed={look.color === c.hex}
-                  onClick={() => onLook({ ...look, color: c.hex })} />
+            <h3>Gövde</h3>
+            <div className="body-pick" role="group" aria-label="Gövde">
+              {([['m', 'Erkek'], ['f', 'Kadın']] as const).map(([id, label]) => (
+                <button key={id} className="btn small" aria-pressed={look.body === id} onClick={() => onLook({ ...look, body: id })}>{label}</button>
               ))}
             </div>
             <label className="field" style={{ marginTop: 14 }}>Tabeladaki ad <span className="muted" style={{ fontWeight: 600 }}>(isteğe bağlı)</span>

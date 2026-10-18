@@ -2,6 +2,7 @@
 // Poz yaylarla tutulur: animasyonlar itki verir, yaylar karakteri başlangıç pozuna geri getirir.
 // Kafa dönüşümü (headMatrix) her karede hesaplanır; yüze yapışan efektler (pasta, su) bu dönüşümle çizilir → kaymaz.
 import { FaceWarp, WARP_PAD_TOP, WARP_PAD_X, type FaceShape } from '../face/FaceWarp'
+import { realBody, type RealBody } from './bodies'
 import { Spring, clamp, seeded, shade } from './math'
 import { sceneById, type Hat, type Outfit, type SceneDef } from './scenes'
 import type { CharacterLook, Expression, FaceAsset, Vec } from './types'
@@ -13,6 +14,8 @@ const HIP: Vec = { x: 400, y: 905 }
 const NECK_TOP = -318          // gövde yerelinde boyun üstü
 const HEAD_FROM_NECK = -150    // boyun üstünden kafa merkezine
 const JAW_PX = 46
+/** Gerçekçi gövde görselinin dünya genişliği (kollar dahil) */
+const REAL_BODY_W = 540
 
 /** Gerçekçi yüzde (ağ bükme) her ifadenin kanal ağırlıkları; jaw pozdan gelir */
 const EXPRESSION_SHAPES: Record<Expression, Partial<FaceShape>> = {
@@ -192,14 +195,48 @@ export class CharacterRenderer {
     const sc = this.scene
     ctx.save()
     ctx.setTransform(screen.multiply(this.bodyMatrix))
-    this.drawArm(ctx, -1, this.pose.armL.value, sc)
-    this.drawTorso(ctx, sc.outfit)
-    this.drawArm(ctx, 1, this.pose.armR.value, sc)
+    const real = realBody(this.look.body, sc.outfit, this.face.skin)
+    if (real) this.drawRealBody(ctx, real, sc)
+    else {
+      this.drawArm(ctx, -1, this.pose.armL.value, sc)
+      this.drawTorso(ctx, sc.outfit)
+      this.drawArm(ctx, 1, this.pose.armR.value, sc)
+    }
     ctx.restore()
 
     ctx.save()
     ctx.setTransform(screen.multiply(this.headMatrix))
     this.drawHead(ctx, sc.hat)
+    ctx.restore()
+  }
+
+  /** Gerçekçi gövde (fotoğraf gibi): boynun ortası kafanın altına oturur; kollar görselin içinde */
+  private drawRealBody(ctx: CanvasRenderingContext2D, body: RealBody, sc: SceneDef) {
+    const k = REAL_BODY_W / body.meta.w
+    // çene ile gövde arası: yüzün teninde, aşağı doğru genişleyen boyun; üstte çene gölgesi
+    const top = NECK_TOP - 44, bottom = NECK_TOP + 30
+    const neck = () => {
+      ctx.beginPath()
+      ctx.moveTo(-30, top); ctx.lineTo(30, top)
+      ctx.quadraticCurveTo(31, bottom - 24, 44, bottom); ctx.lineTo(-44, bottom)
+      ctx.quadraticCurveTo(-31, bottom - 24, -30, top); ctx.closePath()
+    }
+    ctx.fillStyle = this.face.skin; neck(); ctx.fill()
+    const shadow = ctx.createLinearGradient(0, top, 0, bottom)
+    shadow.addColorStop(0, 'rgba(40,20,10,0.45)'); shadow.addColorStop(0.55, 'rgba(40,20,10,0.12)'); shadow.addColorStop(1, 'rgba(40,20,10,0)')
+    ctx.fillStyle = shadow; neck(); ctx.fill()
+    const side = ctx.createLinearGradient(-44, 0, 44, 0)
+    side.addColorStop(0, 'rgba(40,20,10,0.22)'); side.addColorStop(0.3, 'rgba(40,20,10,0)'); side.addColorStop(0.7, 'rgba(40,20,10,0)'); side.addColorStop(1, 'rgba(40,20,10,0.22)')
+    ctx.fillStyle = side; neck(); ctx.fill()
+    // kollar savruldukça gövde hafifçe omuzdan sallanır (görselde kol ayrı değil)
+    const sway = clamp((this.pose.armR.value - this.pose.armL.value) * 0.03, -0.06, 0.06)
+    ctx.save(); ctx.rotate(sway)
+    ctx.drawImage(body.canvas, -body.meta.neckX * k, NECK_TOP - 30, body.meta.w * k, body.meta.h * k)
+    if (sc.outfit === 'tank' && this.look.name) {
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.font = '400 26px "Bungee", system-ui, sans-serif'
+      ctx.fillText(this.look.name.toLocaleUpperCase('tr').slice(0, 10), 0, NECK_TOP + 150, 200)
+    }
     ctx.restore()
   }
 

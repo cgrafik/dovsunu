@@ -47,6 +47,8 @@ export interface CharacterLook {
   color: string
   /** Ortamdaki tabelada görünen ad (isteğe bağlı) */
   name: string
+  /** Gerçekçi gövde: erkek / kadın */
+  body: 'm' | 'f'
 }
 
 /** Karakterin o anki ifadesi (yüzün üstüne çizilen çizgi film katmanları) */
